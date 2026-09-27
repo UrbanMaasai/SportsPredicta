@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import type { Fixture } from "../../domain/types";
-import { modelDrift, summarizeDrift } from "../../domain/drift";
+import { driftSeries, fixtureKey, summarizeDrift } from "../../domain/drift";
+import { loadOddsHistory } from "../../lib/storage";
 import { Modal } from "../ui/Modal";
 import { TrendLine } from "../charts/TrendLine";
 import { C } from "../charts/useD3";
 
 export function DriftChart({ fixture }: { fixture: Fixture }) {
-  const series = useMemo(() => modelDrift(fixture), [fixture]);
+  const observed = useMemo(() => loadOddsHistory()[fixtureKey(fixture)]?.snapshots ?? [], [fixture]);
+  const series = useMemo(() => driftSeries(fixture, observed), [fixture, observed]);
   const s = summarizeDrift(series);
   const t0 = new Date(series[0].at).getTime();
   const hours = (at: string) => (new Date(at).getTime() - t0) / 3_600_000;
@@ -49,7 +51,11 @@ export function DriftChart({ fixture }: { fixture: Fixture }) {
       <p className="meta mt-2">
         {s.steamed ? `Money is coming in on ${s.steamed === "home" ? fixture.home : s.steamed === "away" ? fixture.away : "the draw"}.` : "No significant steam move."}
         <span className="sep" />
-        Pre-publication path is modelled; the final point is the current price.
+        {observed.length > 1
+          ? `${observed.length} observed prices since ${new Date(observed[0].at).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}; the path before the first is modelled.`
+          : observed.length === 1
+            ? "One observed price so far — re-import the coupon later to record movement. Earlier path is modelled."
+            : "Path is modelled; the final point is the current price. Imported coupons record real prices."}
       </p>
     </div>
   );

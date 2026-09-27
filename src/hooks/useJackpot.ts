@@ -3,7 +3,8 @@ import type { Coupon, JackpotKind, Outcome, Selections, StrategyId } from "../do
 import { RULES, togglePick } from "../domain/jackpot";
 import { isCouponOpen, sampleCoupon } from "../domain/fixtures";
 import { buildStrategy } from "../domain/strategies";
-import { loadSession, saveSession, type KindState, type Session } from "../lib/storage";
+import { recordSnapshots } from "../domain/drift";
+import { loadOddsHistory, loadSession, saveOddsHistory, saveSession, type KindState, type Session } from "../lib/storage";
 
 export type View = "coupon" | "compare" | "consensus" | "insights";
 
@@ -66,8 +67,10 @@ export function useJackpot() {
           excluded: s.excluded.includes(fixtureId) ? s.excluded.filter((x) => x !== fixtureId) : [...s.excluded, fixtureId],
         })),
       setExcluded: (excluded: string[]) => update((s) => ({ ...s, excluded })),
-      loadCoupon: (coupon: Coupon) =>
-        setByKind((all) => ({ ...all, [coupon.kind]: freshKindState(coupon.kind, new Date(), coupon) })),
+      loadCoupon: (coupon: Coupon) => {
+        saveOddsHistory(recordSnapshots(loadOddsHistory(), coupon.fixtures));
+        setByKind((all) => ({ ...all, [coupon.kind]: freshKindState(coupon.kind, new Date(), coupon) }));
+      },
       resetSample: () => update(() => freshKindState(kind, new Date())),
       restoreSlip: (selections: Selections, excluded: string[], strategy: StrategyId | "custom") =>
         update((s) => ({ ...s, selections, excluded, strategy })),

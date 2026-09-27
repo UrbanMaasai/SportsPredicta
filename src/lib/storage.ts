@@ -1,7 +1,9 @@
 import type { Coupon, JackpotKind, Selections, Slip, StrategyId } from "../domain/types";
+import { pruneHistory, type OddsHistory } from "../domain/drift";
 
 const KEY_SESSION = "sp.session.v1";
 const KEY_SLIPS = "sp.slips.v1";
+const KEY_ODDS = "sp.odds.v1";
 
 export interface KindState {
   coupon: Coupon;
@@ -70,4 +72,13 @@ export function mergeSlips(a: Slip[], b: Slip[]): Slip[] {
     if (!cur || cur.updatedAt < s.updatedAt) map.set(s.id, s);
   }
   return [...map.values()].sort((x, y) => (x.updatedAt < y.updatedAt ? 1 : -1));
+}
+
+export function loadOddsHistory(): OddsHistory {
+  const h = safeGet<OddsHistory>(KEY_ODDS);
+  return h && typeof h === "object" ? pruneHistory(h) : {};
+}
+
+export function saveOddsHistory(h: OddsHistory): void {
+  safeSet(KEY_ODDS, pruneHistory(h));
 }

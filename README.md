@@ -57,7 +57,7 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Hedging portfolio**: Banker, Draw hedge and High payout tickets. Combined coverage is computed exactly by inclusion–exclusion.
 - **Live matchday simulator**: a 90-minute clock with Poisson goals from each fixture's odds and live tracking of which tiers your ticket still survives.
 - **Backtesting**: hit rate, tier hits and ROI per strategy.
-- **Odds drift tracker**: timeline from publication to now.
+- **Odds drift tracker**: timeline from publication to now. Each import of a real coupon (live, OCR or text) records the prices it sees, and re-importing later adds a new point whenever a price has moved. Recorded history is kept in LocalStorage until a week after kickoff.
 - **Coupon health**: a 0–100 score covering rule compliance, completeness, double placement, slump exposure and upset concentration.
 - **Output**: SMS 79079 codes (multi-line slips expand to one SMS per line, since SMS takes one pick per leg), Telegram markdown, JSON (`sportspredicta.coupon/v1`), CSV, and a printable ticket (Print, PNG or SVG).
 - **Persistence**: the session auto-saves to LocalStorage and is restored on reload. A saved coupon that has already kicked off is replaced with the upcoming round. Signed-in users' slips sync to Firestore.
@@ -66,7 +66,7 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 
 - **Sample coupon.** On first load each jackpot shows a sample coupon anchored to the current calendar (MJP on Sat/Sun, Midweek on Tue/Wed, always in the future). It is labelled as a sample. Use **Import** to load the real coupon by live search, screenshot OCR or pasted text.
 - **Live search** (`POST /api/fixtures/live`) asks Gemini with Google Search grounding for the upcoming coupon on ke.sportpesa.com. Past kickoffs are filtered on both the server and the client, and grounding sources are shown. A search can still return wrong data, so check the preview before loading.
-- **Form, H2H and odds drift.** When a source does not supply form or head-to-head data, they are modelled deterministically from market strength and flagged in the UI. The pre-publication part of the odds-drift path is modelled; only the final point is the observed price.
+- **Form, H2H and odds drift.** When a source does not supply form or head-to-head data, they are modelled deterministically from market strength and flagged in the UI. In the odds-drift chart, points are observed wherever the coupon was imported. Only the stretch before the first import is modelled, and it is bridged onto the first observed price.
 - **Backtesting** uses a clearly labelled *simulated* archive until you import verified results. Import a JSON array of `{ kind, id, date, fixtures: [{home, away, odds}], results: {fixtureId: "1"|"X"|"2"}, payouts: {tier: KES} }`.
 
 Probabilities are estimates. Nothing here guarantees a winning ticket. Bet responsibly · 18+.
@@ -95,4 +95,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 101 Vitest tests. They cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, session restore, App integration and the API routes.
+`npm test` runs 107 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. They cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, session restore, App integration and the API routes.
