@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-sunken: #eef0f3;
+  --color-line: #e2e5ea;
+  --color-line-strong: #cfd4dc;
+  --color-ink: #0f172a;
+  --color-ink-2: #475569;
+  --color-ink-3: #7b8697;
+  --color-bar: #0b1220;
+  --color-bar-2: #1b2433;
+  --color-accent: #0f766e;
+  --color-accent-soft: #e3f3f1;
+  --color-warn: #b45309;
+  --color-warn-soft: #fdf3e2;
+  --color-bad: #b91c1c;
+  --color-bad-soft: #fcebeb;
+  --color-good: #15803d;
+}
+
+@layer base {
+  html { color-scheme: light; }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Every figure in the app is tabular. */
+  time, td, th, input[type="number"] {
+    font-variant-numeric: tabular-nums;
+  }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+}
+
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .meta { @apply text-ink-3 text-xs; }
+  .sep::before { content: "·"; @apply mx-1.5 text-line-strong; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3 h-8 text-sm font-medium text-ink
+      hover:bg-sunken disabled:opacity-50 disabled:pointer-events-none transition-colors;
+  }
+  .btn-primary { @apply bg-accent border-accent text-white hover:bg-accent/90; }
+  .btn-ghost { @apply border-transparent bg-transparent hover:bg-sunken; }
+
+  .seg { @apply inline-flex rounded-md bg-sunken p-0.5; }
+  .seg > button {
+    @apply h-7 px-3 rounded-[5px] text-sm font-medium text-ink-2 hover:text-ink transition-colors;
+  }
+  .seg > button[aria-pressed="true"], .seg > button[aria-selected="true"] { @apply bg-surface text-ink shadow-sm; }
+
+  .seg-dark { @apply inline-flex rounded-md bg-bar-2 p-0.5; }
+  .seg-dark > button { @apply h-7 px-3 rounded-[5px] text-sm font-medium text-slate-400 hover:text-white transition-colors; }
+  .seg-dark > button[aria-pressed="true"], .seg-dark > button[aria-selected="true"] { @apply bg-slate-700 text-white; }
+
+  .panel { @apply rounded-lg border border-line bg-surface; }
+  .panel-h { @apply flex items-center justify-between px-4 h-11 border-b border-line text-sm font-semibold; }
+
+  .input {
+    @apply h-8 rounded-md border border-line bg-surface px-2.5 text-sm text-ink placeholder:text-ink-3
+      focus:border-accent focus:outline-none;
+  }
+
+  .sports-grid { @apply w-full text-sm border-collapse; }
+  .sports-grid th {
+    @apply sticky top-0 z-10 bg-surface text-left text-[11px] font-semibold uppercase tracking-wide text-ink-3
+      px-3 h-9 border-b border-line whitespace-nowrap;
+  }
+  .sports-grid td { @apply px-3 py-2 border-b border-line align-middle; }
+  .sports-grid tbody tr:hover td { @apply bg-canvas; }
+  .sports-grid tr[data-excluded="true"] td { @apply opacity-45; }
+
+  .pick {
+    @apply num w-[52px] h-8 rounded-md border border-line bg-surface text-[13px] text-ink-2 leading-none
+      flex flex-col items-center justify-center hover:border-line-strong transition-colors;
+  }
+  .pick[aria-pressed="true"] { @apply bg-accent border-accent text-white; }
+  .pick > small { @apply text-[9px] font-sans font-semibold opacity-70; }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .print-ticket, .print-ticket * { visibility: visible !important; }
+  .print-ticket { position: fixed; inset: 0; background: #fff !important; padding: 0 !important; align-items: flex-start; }
+}
