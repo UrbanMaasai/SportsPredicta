@@ -18,9 +18,9 @@ export function DriftChart({ fixture }: { fixture: Fixture }) {
       <TrendLine
         label={`Odds drift for ${fixture.home} v ${fixture.away}`}
         series={[
-          { name: "1", color: C.home, values: series.map((p) => ({ x: hours(p.at), y: p.odds.home })) },
-          { name: "X", color: C.draw, values: series.map((p) => ({ x: hours(p.at), y: p.odds.draw })) },
-          { name: "2", color: C.away, values: series.map((p) => ({ x: hours(p.at), y: p.odds.away })) },
+          { name: "1", color: C.home, values: series.map((p) => ({ x: hours(p.at), y: p.odds.home, hollow: !p.observed })) },
+          { name: "X", color: C.draw, values: series.map((p) => ({ x: hours(p.at), y: p.odds.draw, hollow: !p.observed })) },
+          { name: "2", color: C.away, values: series.map((p) => ({ x: hours(p.at), y: p.odds.away, hollow: !p.observed })) },
         ]}
         xFormat={(v) => `${Math.round(v)}h`}
         yFormat={(v) => v.toFixed(2)}
@@ -49,6 +49,10 @@ export function DriftChart({ fixture }: { fixture: Fixture }) {
         </tbody>
       </table>
       <p className="meta mt-2">
+        ● observed
+        <span className="sep" />
+        ○ modelled
+        <span className="sep" />
         {s.steamed ? `Money is coming in on ${s.steamed === "home" ? fixture.home : s.steamed === "away" ? fixture.away : "the draw"}.` : "No significant steam move."}
         <span className="sep" />
         {observed.length > 1

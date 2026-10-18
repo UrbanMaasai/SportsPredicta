@@ -4,7 +4,8 @@ import { C, useD3 } from "./useD3";
 export interface Series {
   name: string;
   color: string;
-  values: { x: number; y: number }[];
+  /** `hollow` points render as open circles (e.g. modelled rather than observed values). */
+  values: { x: number; y: number; hollow?: boolean }[];
 }
 
 /** Multi-series line chart with a labelled y-axis and optional x tick formatter. */
@@ -59,8 +60,10 @@ export function TrendLine({
           .join("circle")
           .attr("cx", (d) => x(d.x))
           .attr("cy", (d) => y(d.y))
-          .attr("r", 2.5)
-          .attr("fill", s.color)
+          .attr("r", (d) => (d.hollow ? 2 : 3))
+          .attr("fill", (d) => (d.hollow ? "#fff" : s.color))
+          .attr("stroke", s.color)
+          .attr("stroke-width", (d) => (d.hollow ? 1 : 0))
           .append("title")
           .text((d) => `${s.name}: ${yFormat(d.y)}`);
       }
