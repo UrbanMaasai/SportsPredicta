@@ -1,9 +1,12 @@
 import type { Coupon, JackpotKind, Selections, Slip, StrategyId } from "../domain/types";
 import { pruneHistory, type OddsHistory } from "../domain/drift";
+import type { Results } from "../domain/results";
 
 const KEY_SESSION = "sp.session.v1";
 const KEY_SLIPS = "sp.slips.v1";
 const KEY_ODDS = "sp.odds.v1";
+const KEY_ROUNDS = "sp.rounds.v1";
+const MAX_ROUNDS = 40;
 
 export interface KindState {
   coupon: Coupon;
@@ -81,4 +84,45 @@ export function loadOddsHistory(): OddsHistory {
 
 export function saveOddsHistory(h: OddsHistory): void {
   safeSet(KEY_ODDS, pruneHistory(h));
+}
+
+/** A real coupon kept after kickoff so it can be settled, with any results entered for it. */
+export interface StoredRound {
+  coupon: Coupon;
+  results: Results;
+  /** Prize per winning line by tier, as published after the round. */
+  payouts: Record<number, number>;
+  updatedAt: string;
+}
+
+export function loadRounds(): Record<string, StoredRound> {
+  const r = safeGet<Record<string, StoredRound>>(KEY_ROUNDS);
+  return r && typeof r === "object" ? r : {};
+}
+
+function saveRounds(rounds: Record<string, StoredRound>): Record<string, StoredRound> {
+  // Keep the most recent coupons by first kickoff.
+  const kept = Object.entries(rounds)
+    .sort(([, a], [, b]) => (b.coupon.fixtures[0]?.kickoff ?? "").localeCompare(a.coupon.fixtures[0]?.kickoff ?? ""))
+    .slice(0, MAX_ROUNDS);
+  const out = Object.fromEntries(kept);
+  safeSet(KEY_ROUNDS, out);
+  return out;
+}
+
+/** Remember a real (non-sample) coupon so it can be settled after kickoff. Existing results are kept. */
+export function rememberCoupon(coupon: Coupon): void {
+  if (coupon.fixtures.length === 0 || coupon.fixtures.every((f) => f.source === "seed")) return;
+  const rounds = loadRounds();
+  const cur = rounds[coupon.id];
+  rounds[coupon.id] = { coupon, results: cur?.results ?? {}, payouts: cur?.payouts ?? {}, updatedAt: new Date().toISOString() };
+  saveRounds(rounds);
+}
+
+export function saveRoundResults(couponId: string, results: Results, payouts: Record<number, number>): Record<string, StoredRound> {
+  const rounds = loadRounds();
+  const cur = rounds[couponId];
+  if (!cur) return rounds;
+  rounds[couponId] = { ...cur, results, payouts, updatedAt: new Date().toISOString() };
+  return saveRounds(rounds);
 }

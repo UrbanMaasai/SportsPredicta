@@ -24,6 +24,9 @@ import { BacktestModal } from "./components/modals/BacktestModal";
 import { DriftModal } from "./components/modals/DriftModal";
 import { MatchModal } from "./components/modals/MatchModal";
 import { SlipsModal } from "./components/modals/SlipsModal";
+import { ResultsModal } from "./components/modals/ResultsModal";
+import { decodeShare, shareFromHash } from "./domain/share";
+import { isCouponOpen } from "./domain/fixtures";
 
 const SOURCE_LABEL = {
   seed: "Sample coupon — Import to load the live SportPesa fixtures",
@@ -53,6 +56,27 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(
     restoredNotice.length ? "A saved coupon had already kicked off, so it was replaced with the upcoming round." : null,
   );
+
+  // Open a shared slip from a `#slip=...` link, then clear the fragment so a reload keeps the session.
+  useEffect(() => {
+    const encoded = shareFromHash(window.location.hash);
+    if (!encoded) return;
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    try {
+      const shared = decodeShare(encoded);
+      if (!isCouponOpen(shared.coupon)) {
+        setNotice("That shared slip’s coupon has already kicked off, so it wasn’t loaded.");
+        return;
+      }
+      setKind(shared.coupon.kind);
+      actions.loadSlip(shared.coupon, shared.selections, shared.excluded);
+      setNotice(`Loaded a shared ${shared.coupon.title} slip. Save it to keep a copy.`);
+    } catch (e) {
+      setNotice((e as Error).message);
+    }
+    // Run once on first load only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     try {
@@ -183,9 +207,12 @@ export default function App() {
       <BudgetModal open={modals.isOpen("budget")} onClose={modals.close} fixtures={fixtures} rules={rules} onApply={(s) => actions.setSelections(s)} />
       <HedgeModal open={modals.isOpen("hedge")} onClose={modals.close} fixtures={fixtures} rules={rules} onUse={(s) => actions.setSelections(s)} />
       <SimulatorModal open={modals.isOpen("simulate")} onClose={modals.close} fixtures={fixtures} selections={selections} excluded={excluded} rules={rules} />
-      <BacktestModal open={modals.isOpen("backtest")} onClose={modals.close} kind={kind} />
+      {modals.isOpen("backtest") && <BacktestModal open onClose={modals.close} kind={kind} />}
       {modals.isOpen("drift") && <DriftModal open onClose={modals.close} fixtures={fixtures} initialId={modals.fixtureId} />}
       <MatchModal open={modals.isOpen("match")} onClose={modals.close} fixture={fixtures.find((f) => f.id === modals.fixtureId)} />
+      {modals.isOpen("results") && (
+        <ResultsModal open onClose={modals.close} kind={kind} current={coupon} currentSelections={selections} slips={auth.slips} />
+      )}
       <SlipsModal
         open={modals.isOpen("slips")}
         onClose={modals.close}

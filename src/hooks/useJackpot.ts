@@ -4,7 +4,7 @@ import { RULES, togglePick } from "../domain/jackpot";
 import { isCouponOpen, sampleCoupon } from "../domain/fixtures";
 import { buildStrategy } from "../domain/strategies";
 import { recordSnapshots } from "../domain/drift";
-import { loadOddsHistory, loadSession, saveOddsHistory, saveSession, type KindState, type Session } from "../lib/storage";
+import { loadOddsHistory, loadSession, rememberCoupon, saveOddsHistory, saveSession, type KindState, type Session } from "../lib/storage";
 
 export type View = "coupon" | "compare" | "consensus" | "insights";
 
@@ -69,7 +69,16 @@ export function useJackpot() {
       setExcluded: (excluded: string[]) => update((s) => ({ ...s, excluded })),
       loadCoupon: (coupon: Coupon) => {
         saveOddsHistory(recordSnapshots(loadOddsHistory(), coupon.fixtures));
+        rememberCoupon(coupon);
         setByKind((all) => ({ ...all, [coupon.kind]: freshKindState(coupon.kind, new Date(), coupon) }));
+      },
+      /** Load a coupon together with specific picks (e.g. from a shared link). */
+      loadSlip: (coupon: Coupon, selections: Selections, excluded: string[]) => {
+        rememberCoupon(coupon);
+        setByKind((all) => ({
+          ...all,
+          [coupon.kind]: { ...freshKindState(coupon.kind, new Date(), coupon), selections, excluded, strategy: "custom" },
+        }));
       },
       resetSample: () => update(() => freshKindState(kind, new Date())),
       restoreSlip: (selections: Selections, excluded: string[], strategy: StrategyId | "custom") =>

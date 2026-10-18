@@ -5,6 +5,9 @@ import { parseArchive, runBacktest, simulatedArchive, type HistoricalRound } fro
 import { STRATEGIES } from "../../domain/strategies";
 import { kes, pct } from "../../lib/api";
 import { Modal } from "../ui/Modal";
+import { Segmented } from "../ui/Segmented";
+import { loadRounds } from "../../lib/storage";
+import { isSettled, toHistoricalRound } from "../../domain/results";
 import { TrendLine } from "../charts/TrendLine";
 import { C } from "../charts/useD3";
 
@@ -13,12 +16,24 @@ export function BacktestModal({ open, onClose, kind }: { open: boolean; onClose:
   const [imported, setImported] = useState<HistoricalRound[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [doubles, setDoubles] = useState(0);
-  const archive = useMemo(() => (imported ?? simulatedArchive(kind)).filter((r) => r.kind === kind), [imported, kind]);
+  // Rounds you settled in Results (all legs entered).
+  const mine = useMemo(
+    () =>
+      Object.values(loadRounds())
+        .filter((r) => r.coupon.kind === kind && isSettled(r.coupon, r.results))
+        .map((r) => toHistoricalRound(r.coupon, r.results, r.payouts)),
+    [kind],
+  );
+  const [source, setSource] = useState<"simulated" | "mine">(mine.length > 0 ? "mine" : "simulated");
+  const archive = useMemo(
+    () => (imported ?? (source === "mine" ? mine : simulatedArchive(kind))).filter((r) => r.kind === kind),
+    [imported, source, mine, kind],
+  );
   const results = useMemo(
     () => (Object.keys(STRATEGIES) as StrategyId[]).map((s) => runBacktest(archive, s, doubles)),
     [archive, doubles],
   );
-  const verified = archive.length > 0 && archive.every((r) => r.provenance === "verified");
+  const provenance = imported ? "verified" : source === "mine" ? "entered" : "simulated";
 
   return (
     <Modal
@@ -27,12 +42,25 @@ export function BacktestModal({ open, onClose, kind }: { open: boolean; onClose:
       width="max-w-4xl"
       title="Historical backtest"
       subtitle={
-        verified
+        provenance === "verified"
           ? `${archive.length} imported rounds with verified results and payouts.`
-          : "Using a simulated archive drawn from the market model. Import verified SportPesa results for a real backtest."
+          : provenance === "entered"
+            ? `${archive.length} round${archive.length === 1 ? "" : "s"} you settled in Results. ROI uses the prizes you entered there.`
+            : "Using a simulated archive drawn from the market model. Settle real coupons in Results, or import verified results, for a real backtest."
       }
     >
       <div className="flex flex-wrap items-center gap-4">
+        {!imported && (
+          <Segmented
+            label="Archive"
+            value={source}
+            onChange={setSource}
+            options={[
+              { value: "mine", label: `My rounds (${mine.length})` },
+              { value: "simulated", label: "Simulated" },
+            ]}
+          />
+        )}
         <label className="flex items-center gap-2 text-sm text-ink-2">
           Doubles
           <input type="number" className="input num w-16" min={0} max={rules.maxDoubles} value={doubles} onChange={(e) => setDoubles(Math.max(0, Math.min(rules.maxDoubles, Number(e.target.value) || 0)))} />

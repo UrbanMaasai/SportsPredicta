@@ -56,10 +56,11 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Budget optimiser**: an exact dynamic-programming knapsack that picks which legs to double or triple for the highest win probability within a KES budget and the rule caps.
 - **Hedging portfolio**: Banker, Draw hedge and High payout tickets. Combined coverage is computed exactly by inclusion–exclusion.
 - **Live matchday simulator**: a 90-minute clock with Poisson goals from each fixture's odds and live tracking of which tiers your ticket still survives.
-- **Backtesting**: hit rate, tier hits and ROI per strategy.
+- **Backtesting**: hit rate, tier hits and ROI per strategy, run on your own settled rounds, an imported archive, or a simulated one.
+- **Results & settlement**: once matches kick off, enter the official results per leg, or paste a code like `1X21X2…` or score lines like `Arsenal 2-1 Chelsea`. Every saved slip on that coupon is graded: correct picks, best tier reached, and the exact number of combination lines landing at each tier. Add the published prize per line and the round's winnings are worked out. Real coupons you import are kept, so you can still settle them after kickoff.
 - **Odds drift tracker**: timeline from publication to now. Each import of a real coupon (live, OCR or text) records the prices it sees, and re-importing later adds a new point whenever a price has moved. Recorded history is kept in LocalStorage until a week after kickoff.
 - **Coupon health**: a 0–100 score covering rule compliance, completeness, double placement, slump exposure and upset concentration.
-- **Output**: SMS 79079 codes (multi-line slips expand to one SMS per line, since SMS takes one pick per leg), Telegram markdown, JSON (`sportspredicta.coupon/v1`), CSV, and a printable ticket (Print, PNG or SVG).
+- **Output**: SMS 79079 codes (multi-line slips expand to one SMS per line, since SMS takes one pick per leg), Telegram markdown, JSON (`sportspredicta.coupon/v1`), CSV, a printable ticket (Print, PNG or SVG), and a **share link**. The share link carries the whole coupon and picks inside its URL fragment, so opening it loads the slip in the recipient's browser and nothing is uploaded.
 - **Persistence**: the session auto-saves to LocalStorage and is restored on reload. A saved coupon that has already kicked off is replaced with the upcoming round. Signed-in users' slips sync to Firestore.
 
 ## Data sources and honesty notes
@@ -67,7 +68,7 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Sample coupon.** On first load each jackpot shows a sample coupon anchored to the current calendar (MJP on Sat/Sun, Midweek on Tue/Wed, always in the future). It is labelled as a sample. Use **Import** to load the real coupon by live search, screenshot OCR or pasted text.
 - **Live search** (`POST /api/fixtures/live`) asks Gemini with Google Search grounding for the upcoming coupon on ke.sportpesa.com. Past kickoffs are filtered on both the server and the client, and grounding sources are shown. A search can still return wrong data, so check the preview before loading.
 - **Form, H2H and odds drift.** When a source does not supply form or head-to-head data, they are modelled deterministically from market strength and flagged in the UI. In the odds-drift chart, points are observed wherever the coupon was imported. Only the stretch before the first import is modelled, and it is bridged onto the first observed price.
-- **Backtesting** uses a clearly labelled *simulated* archive until you import verified results. Import a JSON array of `{ kind, id, date, fixtures: [{home, away, odds}], results: {fixtureId: "1"|"X"|"2"}, payouts: {tier: KES} }`.
+- **Backtesting** runs on *My rounds* (coupons you settled in Results) or a clearly labelled *simulated* archive. You can also import verified results. Import a JSON array of `{ kind, id, date, fixtures: [{home, away, odds}], results: {fixtureId: "1"|"X"|"2"}, payouts: {tier: KES} }`.
 
 Probabilities are estimates. Nothing here guarantees a winning ticket. Bet responsibly · 18+.
 
@@ -95,4 +96,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 107 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. They cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, session restore, App integration and the API routes.
+`npm test` runs 126 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, session restore, App integration and the API routes.

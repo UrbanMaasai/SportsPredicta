@@ -55,6 +55,7 @@ export function StrategyBar({
         <button className="btn btn-ghost" onClick={() => onTool("simulate")}>Simulate</button>
         <button className="btn btn-ghost" onClick={() => onTool("backtest")}>Backtest</button>
         <button className="btn btn-ghost" onClick={() => onTool("drift")}>Odds drift</button>
+        <button className="btn btn-ghost" onClick={() => onTool("results")}>Results</button>
       </div>
     </div>
   );
