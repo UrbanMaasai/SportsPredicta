@@ -4,11 +4,12 @@ import type { JackpotRules } from "../../domain/jackpot";
 import { combinations } from "../../domain/jackpot";
 import { formatSms, formatTelegram, SMS_SHORTCODE, toCsv, toJson } from "../../domain/export";
 import { ticketSvg } from "../../domain/ticket";
+import { shareUrl } from "../../domain/share";
 import { copyText, download, kes } from "../../lib/api";
 import { Modal } from "../ui/Modal";
 import { Segmented } from "../ui/Segmented";
 
-type Tab = "sms" | "telegram" | "json" | "csv" | "ticket";
+type Tab = "sms" | "telegram" | "json" | "csv" | "ticket" | "link";
 
 async function svgToPng(svg: string): Promise<string> {
   const img = new Image();
@@ -53,6 +54,7 @@ export function ExportModal({
   const csv = toCsv(coupon, selections);
   const svg = ticketSvg(coupon, selections, rules, slipName);
   const lines = combinations(selections, coupon.fixtures);
+  const link = shareUrl(`${window.location.origin}${window.location.pathname}`, coupon, selections, excluded);
   const base = `${rules.kind.toLowerCase()}-${coupon.id}`;
 
   const copy = async (key: string, text: string) => {
@@ -76,6 +78,7 @@ export function ExportModal({
           { value: "json", label: "JSON" },
           { value: "csv", label: "CSV" },
           { value: "ticket", label: "Ticket" },
+          { value: "link", label: "Link" },
         ]}
       />
       <div className="mt-4 space-y-3">
@@ -119,6 +122,17 @@ export function ExportModal({
             {block(csv)}
             <button className="btn btn-primary" onClick={() => download(`${base}.csv`, csv, "text/csv")}>
               Download CSV
+            </button>
+          </>
+        )}
+        {tab === "link" && (
+          <>
+            <p className="text-sm text-ink-2">
+              Anyone who opens this link gets this coupon and these picks loaded in their own browser. Nothing is uploaded — the slip travels inside the link.
+            </p>
+            {block(link)}
+            <button className="btn btn-primary" onClick={() => copy("link", link)}>
+              {copied === "link" ? "Copied" : "Copy link"}
             </button>
           </>
         )}

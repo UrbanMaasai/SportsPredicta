@@ -14,8 +14,8 @@ export interface HistoricalRound {
   results: Record<string, Outcome>;
   /** Paid prize per winning line, keyed by tier. 0 = rolled over / no winners. */
   payouts: Record<number, number>;
-  /** "verified" only for imported official results. */
-  provenance: "verified" | "simulated";
+  /** "verified": imported official archive; "entered": results you entered for a coupon; "simulated": model-drawn. */
+  provenance: "verified" | "entered" | "simulated";
 }
 
 export interface BacktestRound {

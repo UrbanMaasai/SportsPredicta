@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import type { Fixture } from "../../domain/types";
-import { modelDrift, summarizeDrift } from "../../domain/drift";
+import { driftSeries, fixtureKey, summarizeDrift } from "../../domain/drift";
+import { loadOddsHistory } from "../../lib/storage";
 import { Modal } from "../ui/Modal";
 import { TrendLine } from "../charts/TrendLine";
 import { C } from "../charts/useD3";
 
 export function DriftChart({ fixture }: { fixture: Fixture }) {
-  const series = useMemo(() => modelDrift(fixture), [fixture]);
+  const observed = useMemo(() => loadOddsHistory()[fixtureKey(fixture)]?.snapshots ?? [], [fixture]);
+  const series = useMemo(() => driftSeries(fixture, observed), [fixture, observed]);
   const s = summarizeDrift(series);
   const t0 = new Date(series[0].at).getTime();
   const hours = (at: string) => (new Date(at).getTime() - t0) / 3_600_000;
@@ -16,9 +18,9 @@ export function DriftChart({ fixture }: { fixture: Fixture }) {
       <TrendLine
         label={`Odds drift for ${fixture.home} v ${fixture.away}`}
         series={[
-          { name: "1", color: C.home, values: series.map((p) => ({ x: hours(p.at), y: p.odds.home })) },
-          { name: "X", color: C.draw, values: series.map((p) => ({ x: hours(p.at), y: p.odds.draw })) },
-          { name: "2", color: C.away, values: series.map((p) => ({ x: hours(p.at), y: p.odds.away })) },
+          { name: "1", color: C.home, values: series.map((p) => ({ x: hours(p.at), y: p.odds.home, hollow: !p.observed })) },
+          { name: "X", color: C.draw, values: series.map((p) => ({ x: hours(p.at), y: p.odds.draw, hollow: !p.observed })) },
+          { name: "2", color: C.away, values: series.map((p) => ({ x: hours(p.at), y: p.odds.away, hollow: !p.observed })) },
         ]}
         xFormat={(v) => `${Math.round(v)}h`}
         yFormat={(v) => v.toFixed(2)}
@@ -47,9 +49,17 @@ export function DriftChart({ fixture }: { fixture: Fixture }) {
         </tbody>
       </table>
       <p className="meta mt-2">
+        ● observed
+        <span className="sep" />
+        ○ modelled
+        <span className="sep" />
         {s.steamed ? `Money is coming in on ${s.steamed === "home" ? fixture.home : s.steamed === "away" ? fixture.away : "the draw"}.` : "No significant steam move."}
         <span className="sep" />
-        Pre-publication path is modelled; the final point is the current price.
+        {observed.length > 1
+          ? `${observed.length} observed prices since ${new Date(observed[0].at).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" })}; the path before the first is modelled.`
+          : observed.length === 1
+            ? "One observed price so far — re-import the coupon later to record movement. Earlier path is modelled."
+            : "Path is modelled; the final point is the current price. Imported coupons record real prices."}
       </p>
     </div>
   );
