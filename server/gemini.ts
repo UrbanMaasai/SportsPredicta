@@ -120,3 +120,43 @@ export async function parseTextAI(text: string, now = new Date()): Promise<RawFi
   });
   return sanitizeRaw(JSON.parse(res.text ?? "[]"));
 }
+
+/**
+ * Results lookup: full-time scores for a coupon's fixtures, and the bonus payouts SportPesa
+ * published for the round, via Google Search grounding. Returned raw; the client validates it.
+ */
+export async function fetchResults(
+  kind: JackpotKind,
+  fixtures: { home: string; away: string; kickoff: string }[],
+  now = new Date(),
+): Promise<{ matches: unknown[]; payouts: Record<string, number>; sources: { title: string; uri: string }[] }> {
+  const r = RULES[kind];
+  const list = fixtures.map((f, i) => `${i}. ${f.home} vs ${f.away} — kickoff ${f.kickoff}`).join("\n");
+  const tiers = [r.legs, ...r.subTiers].join(", ");
+  const prompt = [
+    `Today is ${now.toISOString().slice(0, 10)}. These fixtures formed ${describe(kind)}:`,
+    list,
+    "For each fixture give the official full-time result (90 minutes plus stoppage time — jackpot settles on that).",
+    'Use status "FT" only when the match was played and finished; "postponed", "abandoned" or "not_played" otherwise. Never guess a score.',
+    `Also give the prize per winning line SportPesa published for this round, for tiers ${tiers} correct, in KES, if you can find it.`,
+    'Respond with ONLY JSON: {"matches":[{"index":0,"homeGoals":2,"awayGoals":1,"status":"FT"}],"payouts":{"17":0,"16":123456}}',
+  ].join("\n");
+  const res = await ai().models.generateContent({
+    model: MODEL,
+    contents: prompt,
+    config: { tools: [{ googleSearch: {} }], temperature: 0 },
+  });
+  const text = res.text ?? "";
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = fenced ? fenced[1] : text;
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("Model response did not contain JSON.");
+  const parsed = JSON.parse(body.slice(start, end + 1)) as { matches?: unknown[]; payouts?: Record<string, number> };
+  const chunks = res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
+  return {
+    matches: Array.isArray(parsed.matches) ? parsed.matches : [],
+    payouts: parsed.payouts && typeof parsed.payouts === "object" ? parsed.payouts : {},
+    sources: chunks.map((c) => ({ title: c.web?.title ?? c.web?.uri ?? "", uri: c.web?.uri ?? "" })).filter((x) => x.uri),
+  };
+}

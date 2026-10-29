@@ -30,7 +30,7 @@ describe("strategy history in the app", () => {
     await userEvent.click(screen.getByRole("button", { name: "Bold value" }));
     await userEvent.click(screen.getByRole("button", { name: "Generate" }));
     await userEvent.click(screen.getByRole("button", { name: "Slips" }));
-    await userEvent.click(screen.getByRole("button", { name: /Strategy history \(1\)/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Strategy history \(1\)/ }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Bold value")).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Re-apply" })).toBeEnabled();

@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
 import type { Coupon, JackpotKind, Outcome, Selections, Slip } from "../../domain/types";
 import { RULES } from "../../domain/jackpot";
-import { gradeSlip, isSettled, parseResults, type Results } from "../../domain/results";
-import { kes } from "../../lib/api";
+import { applyFetchedResults, gradeSlip, isSettled, parseResults, type Results } from "../../domain/results";
+import { api, kes } from "../../lib/api";
 import { loadRounds, saveRoundResults, type StoredRound } from "../../lib/storage";
 import { Modal } from "../ui/Modal";
 
@@ -47,6 +47,38 @@ export function ResultsModal({
   const [unmatched, setUnmatched] = useState<string[]>([]);
   const [notStarted, setNotStarted] = useState(0);
   const started = (kickoff: string) => new Date(kickoff).getTime() <= now;
+  const [fetching, setFetching] = useState(false);
+  const [fetchNote, setFetchNote] = useState<{ text: string; tone: "ok" | "warn" | "bad"; sources?: { title: string; uri: string }[] } | null>(null);
+
+  /** Look up full-time scores and published payouts; fills only legs you haven't entered yourself. */
+  const fetchResults = async () => {
+    if (!round) return;
+    setFetching(true);
+    setFetchNote(null);
+    try {
+      const fx = round.coupon.fixtures;
+      const raw = await api.results(kind, fx.map((f) => ({ home: f.home, away: f.away, kickoff: f.kickoff })));
+      const tiers = [rules.legs, ...rules.subTiers];
+      const got = applyFetchedResults(raw, fx, tiers, now);
+      const fresh = Object.fromEntries(Object.entries(got.results).filter(([id]) => !round.results[id]));
+      const freshPayouts = Object.fromEntries(Object.entries(got.payouts).filter(([t]) => !round.payouts[Number(t)]));
+      update({ ...round.results, ...fresh }, { ...round.payouts, ...freshPayouts });
+      const n = Object.keys(fresh).length;
+      const p = Object.keys(freshPayouts).length;
+      setFetchNote({
+        text:
+          n + p === 0
+            ? "No new full-time results or payouts found yet."
+            : `Filled ${n} result${n === 1 ? "" : "s"}${p ? ` and ${p} payout${p === 1 ? "" : "s"}` : ""}. Check them against the official SportPesa results before relying on them.`,
+        tone: n + p === 0 ? "warn" : "ok",
+        sources: raw.sources,
+      });
+    } catch (e) {
+      setFetchNote({ text: (e as Error).message, tone: "bad" });
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const update = (results: Results, payouts = round?.payouts ?? {}) => {
     if (!round) return;
@@ -136,6 +168,33 @@ export function ResultsModal({
             </table>
 
             <div className="space-y-4">
+              <div>
+                <button
+                  className="btn btn-primary w-full"
+                  disabled={fetching || !round.coupon.fixtures.some((f) => started(f.kickoff) && !round.results[f.id])}
+                  onClick={fetchResults}
+                  title="Search for full-time scores and published payouts (needs the server's Gemini key)"
+                >
+                  {fetching ? "Searching…" : "Fetch results"}
+                </button>
+                {fetchNote && (
+                  <p className={`mt-2 text-sm ${fetchNote.tone === "ok" ? "text-good" : fetchNote.tone === "warn" ? "text-warn" : "text-bad"}`} role="status">
+                    {fetchNote.text}
+                    {fetchNote.sources && fetchNote.sources.length > 0 && (
+                      <span className="meta block">
+                        Sources:{" "}
+                        {fetchNote.sources.slice(0, 3).map((x, i) => (
+                          <span key={x.uri} className={i ? "sep" : undefined}>
+                            <a className="underline" href={x.uri} target="_blank" rel="noreferrer">
+                              {x.title || new URL(x.uri).hostname}
+                            </a>
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </p>
+                )}
+              </div>
               <div>
                 <label className="meta mb-1 block" htmlFor="results-paste">
                   Paste results

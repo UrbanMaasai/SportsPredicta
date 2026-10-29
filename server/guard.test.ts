@@ -89,3 +89,28 @@ describe("guard helpers", () => {
     await expect(withTimeout(new Promise(() => {}), 10)).rejects.toBeInstanceOf(TimeoutError);
   });
 });
+
+describe("results lookup endpoint", () => {
+  const list = [{ home: "Arsenal", away: "Chelsea", kickoff: "2026-10-25T14:00:00Z" }];
+
+  it("validates the request", async () => {
+    const post = await start({ rateLimitPerMinute: 100 });
+    expect((await post("/fixtures/results", { kind: "MID13", fixtures: [] })).status).toBe(400);
+    expect((await post("/fixtures/results", { kind: "MID13", fixtures: [{ home: "A" }] })).status).toBe(400);
+    const tooMany = Array.from({ length: 14 }, () => list[0]);
+    expect((await post("/fixtures/results", { kind: "MID13", fixtures: tooMany })).status).toBe(400);
+  });
+
+  it("returns the lookup and caches it per fixture list", async () => {
+    const payload = { matches: [{ index: 0, homeGoals: 2, awayGoals: 1, status: "FT" }], payouts: { "13": 5000 }, sources: [] };
+    const fetchResults = vi.fn(async () => payload);
+    const post = await start({ fetchResults, rateLimitPerMinute: 100 });
+    const a = await post("/fixtures/results", { kind: "MID13", fixtures: list });
+    expect(a.status).toBe(200);
+    expect(await a.json()).toEqual(payload);
+    expect((await post("/fixtures/results", { kind: "MID13", fixtures: list })).headers.get("x-cache")).toBe("HIT");
+    await post("/fixtures/results", { kind: "MID13", fixtures: list, refresh: true });
+    expect(fetchResults).toHaveBeenCalledTimes(2);
+    expect(fetchResults).toHaveBeenCalledWith("MID13", [{ home: "Arsenal", away: "Chelsea", kickoff: "2026-10-25T14:00:00.000Z" }]);
+  });
+});

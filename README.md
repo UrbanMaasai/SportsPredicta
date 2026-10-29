@@ -61,7 +61,7 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Hedging portfolio**: Banker, Draw hedge and High payout tickets. Combined coverage is computed exactly by inclusion–exclusion.
 - **Live matchday simulator**: a 90-minute clock with Poisson goals from each fixture's odds and live tracking of which tiers your ticket still survives.
 - **Backtesting**: hit rate, tier hits and ROI per strategy, run on your own settled rounds, an imported archive, or a simulated one.
-- **Results & settlement**: once matches kick off, enter the official results per leg, or paste a code like `1X21X2…` or score lines like `Arsenal 2-1 Chelsea`. Every saved slip on that coupon is graded: correct picks, best tier reached, and the exact number of combination lines landing at each tier. Add the published prize per line and the round's winnings are worked out. Real coupons you import are kept, so you can still settle them after kickoff.
+- **Results & settlement** (plus **Fetch results**, which looks up full-time scores and SportPesa's published bonus payouts with Gemini search grounding, fills only kicked-off legs you haven't entered, and shows its sources): once matches kick off, enter the official results per leg, or paste a code like `1X21X2…` or score lines like `Arsenal 2-1 Chelsea`. Every saved slip on that coupon is graded: correct picks, best tier reached, and the exact number of combination lines landing at each tier. Add the published prize per line and the round's winnings are worked out. Real coupons you import are kept, so you can still settle them after kickoff.
 - **Odds drift tracker**: timeline from publication to now. Each import of a real coupon (live, OCR or text) records the prices it sees, and re-importing later adds a new point whenever a price has moved. Recorded history is kept in LocalStorage until a week after kickoff.
 - **Coupon health**: a 0–100 score covering rule compliance, completeness, double placement, slump exposure and upset concentration.
 - **Output**: SMS 79079 codes (multi-line slips expand to one SMS per line, since SMS takes one pick per leg), Telegram markdown (with a country flag per fixture), JSON (`sportspredicta.coupon/v1`), CSV, a printable ticket (Print, PNG or SVG), and a **share link**. The share link carries the whole coupon and picks inside its URL fragment, so opening it loads the slip in the recipient's browser and nothing is uploaded.
@@ -76,6 +76,12 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Backtesting** runs on *My rounds* (coupons you settled in Results) or a clearly labelled *simulated* archive. You can also import verified results. Import a JSON array of `{ kind, id, date, fixtures: [{home, away, odds}], results: {fixtureId: "1"|"X"|"2"}, payouts: {tier: KES} }`.
 
 Probabilities are estimates. Nothing here guarantees a winning ticket. Bet responsibly · 18+.
+
+## Resilience
+
+- An error boundary replaces a crashed view with a recovery screen. *Reset session* clears only the working coupon and picks; saved slips, results and history stay.
+- Dialogs are code-split and load on first open, which keeps the initial bundle small.
+- Focus is trapped inside dialogs while they are open.
 
 ## Server protection
 
@@ -92,6 +98,7 @@ Probabilities are estimates. Nothing here guarantees a winning ticket. Bet respo
 | GET | `/api/health` | | `{ ok, gemini, time }` |
 | POST | `/api/fixtures/live` | `{ kind: "MJP17" \| "MID13", refresh?: boolean }` | `{ fixtures, sources }` |
 | POST | `/api/fixtures/ocr` | `{ image: base64 \| dataURL, mimeType }` (PNG/JPEG/WebP, ≤ 8 MB) | `{ fixtures }` |
+| POST | `/api/fixtures/results` | `{ kind, fixtures: [{ home, away, kickoff }], refresh?: boolean }` | `{ matches: [{ index, homeGoals, awayGoals, status }], payouts, sources }` |
 | POST | `/api/fixtures/parse` | `{ text }` | `{ fixtures, engine: "local" \| "gemini" }` |
 
 ## Project layout
@@ -109,4 +116,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 150 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, session restore, App integration and the API routes.
+`npm test` runs 160 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, the results lookup, the error boundary and the dialog focus trap, session restore, App integration and the API routes.
