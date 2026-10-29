@@ -103,20 +103,38 @@ export function ImportModal({ open, onClose, kind, onLoad }: { open: boolean; on
             <p className="text-sm text-ink-2">
               Searches ke.sportpesa.com with Google Search grounding for the current upcoming {rules.name} coupon.
             </p>
-            <button
-              className="btn btn-primary"
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  const r = await api.live(kind);
-                  setRaw(r.fixtures);
-                  setSources(r.sources);
-                  setSource("live");
-                })
-              }
-            >
-              {busy ? "Searching…" : "Search live coupon"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const r = await api.live(kind);
+                    setRaw(r.fixtures);
+                    setSources(r.sources);
+                    setSource("live");
+                  })
+                }
+              >
+                {busy ? "Searching…" : "Search live coupon"}
+              </button>
+              {raw && source === "live" && (
+                <button
+                  className="btn"
+                  disabled={busy}
+                  title="Results are reused for 10 minutes; this forces a new search"
+                  onClick={() =>
+                    run(async () => {
+                      const r = await api.live(kind, true);
+                      setRaw(r.fixtures);
+                      setSources(r.sources);
+                    })
+                  }
+                >
+                  Search again
+                </button>
+              )}
+            </div>
           </div>
         )}
         {tab === "ocr" && (

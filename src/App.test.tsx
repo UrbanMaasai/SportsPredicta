@@ -26,11 +26,12 @@ describe("App", () => {
   it("opens and closes tool modals from the strategy bar", async () => {
     render(<App />);
     await userEvent.click(screen.getByRole("button", { name: "Hedge" }));
-    expect(screen.getByRole("dialog", { name: /Hedging/ })).toBeInTheDocument();
+    // Dialogs are lazy-loaded on first open.
+    expect(await screen.findByRole("dialog", { name: /Hedging/ })).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Budget" }));
-    expect(screen.getByRole("dialog", { name: /budget/i })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /budget/i })).toBeInTheDocument();
   });
 
   it("persists the session to localStorage", async () => {

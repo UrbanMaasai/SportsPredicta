@@ -1,6 +1,7 @@
 import express from "express";
 import path from "node:path";
 import { createApi } from "./server/app";
+import { securityHeaders } from "./server/guard";
 
 const PORT = Number(process.env.PORT ?? 3000);
 const isProd = process.env.NODE_ENV === "production";
@@ -8,6 +9,9 @@ const isProd = process.env.NODE_ENV === "production";
 async function main() {
   const app = express();
   app.disable("x-powered-by");
+  // Behind a proxy (Cloud Run, Render, nginx) this makes req.ip the real client for rate limiting.
+  if (process.env.TRUST_PROXY) app.set("trust proxy", process.env.TRUST_PROXY === "true" ? true : process.env.TRUST_PROXY);
+  app.use(securityHeaders);
   app.use("/api", createApi());
 
   if (isProd) {

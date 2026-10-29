@@ -119,3 +119,56 @@ export function toHistoricalRound(coupon: Coupon, results: Results, payouts: Rec
 export function isSettled(coupon: Coupon, results: Results): boolean {
   return coupon.fixtures.length > 0 && coupon.fixtures.every((f) => results[f.id]);
 }
+
+// ---------- Fetched results (AI search) ----------
+
+/** A fixture as sent to the results lookup: just what is needed to identify the match. */
+export interface ResultQuery {
+  home: string;
+  away: string;
+  kickoff: string;
+}
+
+/** Raw shape the server returns: per-fixture scores by coupon position, plus any published payouts. */
+export interface FetchedResults {
+  matches: { index: number; homeGoals?: number | null; awayGoals?: number | null; status?: string }[];
+  payouts?: Record<string, number>;
+  sources?: { title: string; uri: string }[];
+}
+
+export interface AppliedFetch {
+  results: Results;
+  payouts: Record<number, number>;
+  /** Fixtures the lookup could not settle (not played, postponed, unknown, or not yet kicked off). */
+  unresolved: number;
+}
+
+const isGoals = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n) && n >= 0 && n < 30;
+
+/**
+ * Turn a fetched lookup into results for this coupon. Only full-time scores for fixtures that have
+ * actually kicked off are accepted; payouts are kept only for real tiers of this jackpot.
+ */
+export function applyFetchedResults(
+  raw: unknown,
+  fixtures: Fixture[],
+  tiers: number[],
+  now = Date.now(),
+): AppliedFetch {
+  const data = (raw ?? {}) as FetchedResults;
+  const results: Results = {};
+  for (const m of Array.isArray(data.matches) ? data.matches : []) {
+    const f = fixtures[m?.index];
+    if (!f || new Date(f.kickoff).getTime() > now) continue;
+    const status = String(m.status ?? "FT").toUpperCase();
+    if (!["FT", "AET", "PEN", "FINISHED"].includes(status)) continue;
+    if (!isGoals(m.homeGoals) || !isGoals(m.awayGoals)) continue;
+    results[f.id] = m.homeGoals > m.awayGoals ? "1" : m.homeGoals < m.awayGoals ? "2" : "X";
+  }
+  const payouts: Record<number, number> = {};
+  for (const [k, v] of Object.entries(data.payouts ?? {})) {
+    const tier = Number(k);
+    if (tiers.includes(tier) && typeof v === "number" && Number.isFinite(v) && v >= 0) payouts[tier] = Math.round(v);
+  }
+  return { results, payouts, unresolved: fixtures.length - Object.keys(results).length };
+}

@@ -1,4 +1,4 @@
-import type { Coupon, JackpotKind, Selections, Slip, StrategyId } from "../domain/types";
+import type { Coupon, JackpotKind, Selections, Slip, StrategyId, StrategyRun } from "../domain/types";
 import { pruneHistory, type OddsHistory } from "../domain/drift";
 import type { Results } from "../domain/results";
 
@@ -125,4 +125,25 @@ export function saveRoundResults(couponId: string, results: Results, payouts: Re
   if (!cur) return rounds;
   rounds[couponId] = { ...cur, results, payouts, updatedAt: new Date().toISOString() };
   return saveRounds(rounds);
+}
+
+const KEY_RUNS = "sp.strategy-history.v1";
+export const MAX_RUNS = 100;
+
+export function loadRuns(): StrategyRun[] {
+  const r = safeGet<StrategyRun[]>(KEY_RUNS);
+  return Array.isArray(r) ? r : [];
+}
+
+export function saveRun(run: StrategyRun): StrategyRun[] {
+  const all = mergeRuns([run], loadRuns());
+  safeSet(KEY_RUNS, all);
+  return all;
+}
+
+/** Union by id, newest first, capped. */
+export function mergeRuns(a: StrategyRun[], b: StrategyRun[]): StrategyRun[] {
+  const map = new Map<string, StrategyRun>();
+  for (const r of [...a, ...b]) if (!map.has(r.id)) map.set(r.id, r);
+  return [...map.values()].sort((x, y) => (x.at < y.at ? 1 : -1)).slice(0, MAX_RUNS);
 }

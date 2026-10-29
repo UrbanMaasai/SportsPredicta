@@ -54,7 +54,7 @@ describe("exports", () => {
   it("telegram text has bold markdown, emoji and odds summary", () => {
     const t = formatTelegram(c, sel, RULES.MID13, "Syndicate");
     expect(t).toContain("🏆 *Midweek Jackpot* — Syndicate");
-    expect(t).toContain("🔀 *2.*");
+    expect(t).toMatch(/\*2\.\* .* — \*1\/X\* 🔀/);
     expect(t).toMatch(/\*Lines:\* 2 · \*Stake:\* KES 198/);
   });
 
@@ -71,5 +71,17 @@ describe("exports", () => {
     expect(rows[0]).toBe("Leg,Home,Away,League,Kickoff,Odds 1,Odds X,Odds 2,Picks");
     expect(rows[1]).toContain('"Team ""A"", FC"');
     expect(rows[2].endsWith("1/X")).toBe(true);
+  });
+});
+
+describe("league flags", () => {
+  it("maps countries and well-known leagues, falling back to a ball", async () => {
+    const { leagueFlag } = await import("./export");
+    expect(leagueFlag("Spain · La Liga")).toBe("🇪🇸");
+    expect(leagueFlag("England - Championship")).toBe("🏴󠁧󠁢󠁥󠁮󠁧󠁿");
+    expect(leagueFlag("Serie A")).toBe("🇮🇹");
+    expect(leagueFlag("UEFA Champions League")).toBe("🏆");
+    expect(leagueFlag("Kenya · Premier League")).toBe("🇰🇪");
+    expect(leagueFlag("—")).toBe("⚽");
   });
 });

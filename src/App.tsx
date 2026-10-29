@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import type { JackpotKind, Slip } from "./domain/types";
 import { DEFAULT_PRIZES, type PrizeTable } from "./domain/jackpot";
 import { countdown } from "./domain/fixtures";
-import { STRATEGIES } from "./domain/strategies";
+import { STRATEGIES, buildStrategy, slipProbability } from "./domain/strategies";
+import { combinations } from "./domain/jackpot";
+import type { StrategyId } from "./domain/types";
 import { useJackpot } from "./hooks/useJackpot";
 import { useModals } from "./hooks/useModals";
 import { useNow } from "./hooks/useNow";
@@ -15,18 +17,21 @@ import { Meta } from "./components/ui/Meta";
 import { CompareView } from "./components/views/CompareView";
 import { ConsensusView } from "./components/views/ConsensusView";
 import { InsightsView } from "./components/views/InsightsView";
-import { ImportModal } from "./components/modals/ImportModal";
-import { ExportModal } from "./components/modals/ExportModal";
-import { BudgetModal } from "./components/modals/BudgetModal";
-import { HedgeModal } from "./components/modals/HedgeModal";
-import { SimulatorModal } from "./components/modals/SimulatorModal";
-import { BacktestModal } from "./components/modals/BacktestModal";
-import { DriftModal } from "./components/modals/DriftModal";
-import { MatchModal } from "./components/modals/MatchModal";
-import { SlipsModal } from "./components/modals/SlipsModal";
-import { ResultsModal } from "./components/modals/ResultsModal";
 import { decodeShare, shareFromHash } from "./domain/share";
 import { isCouponOpen } from "./domain/fixtures";
+
+// Dialogs load on first open, keeping them out of the initial bundle.
+const ImportModal = lazy(() => import("./components/modals/ImportModal").then((m) => ({ default: m.ImportModal })));
+const ExportModal = lazy(() => import("./components/modals/ExportModal").then((m) => ({ default: m.ExportModal })));
+const BudgetModal = lazy(() => import("./components/modals/BudgetModal").then((m) => ({ default: m.BudgetModal })));
+const HedgeModal = lazy(() => import("./components/modals/HedgeModal").then((m) => ({ default: m.HedgeModal })));
+const SimulatorModal = lazy(() => import("./components/modals/SimulatorModal").then((m) => ({ default: m.SimulatorModal })));
+const BacktestModal = lazy(() => import("./components/modals/BacktestModal").then((m) => ({ default: m.BacktestModal })));
+const DriftModal = lazy(() => import("./components/modals/DriftModal").then((m) => ({ default: m.DriftModal })));
+const MatchModal = lazy(() => import("./components/modals/MatchModal").then((m) => ({ default: m.MatchModal })));
+const SlipsModal = lazy(() => import("./components/modals/SlipsModal").then((m) => ({ default: m.SlipsModal })));
+const ResultsModal = lazy(() => import("./components/modals/ResultsModal").then((m) => ({ default: m.ResultsModal })));
+const PortfolioModal = lazy(() => import("./components/modals/PortfolioModal").then((m) => ({ default: m.PortfolioModal })));
 
 const SOURCE_LABEL = {
   seed: "Sample coupon — Import to load the live SportPesa fixtures",
@@ -48,7 +53,7 @@ function loadPrizes(): Record<JackpotKind, PrizeTable> {
 }
 
 export default function App() {
-  const { kind, setKind, view, setView, state, rules, actions, restoredNotice } = useJackpot();
+  const { kind, setKind, view, setView, state, rules, actions, canUndo, canRedo, restoredNotice } = useJackpot();
   const modals = useModals();
   const now = useNow(1000);
   const auth = useAuthAndSlips();
@@ -56,6 +61,22 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(
     restoredNotice.length ? "A saved coupon had already kicked off, so it was replaced with the upcoming round." : null,
   );
+
+  // Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo — except while typing in a field or with a dialog open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) actions.undo();
+      else if ((key === "z" && e.shiftKey) || key === "y") actions.redo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [actions]);
 
   // Open a shared slip from a `#slip=...` link, then clear the fragment so a reload keeps the session.
   useEffect(() => {
@@ -90,6 +111,25 @@ export default function App() {
   const fixtures = coupon.fixtures;
   const strategyLabel = strategy === "custom" ? "Custom" : STRATEGIES[strategy].label;
   const first = fixtures[0];
+
+  /** Generate a strategy slip and log the run to strategy history. */
+  const generate = (strategy: StrategyId, doubles: number) => {
+    actions.applyStrategy(strategy, doubles);
+    const sel = buildStrategy(strategy, fixtures, doubles);
+    const lines = combinations(sel, fixtures);
+    auth.recordRun({
+      id: crypto.randomUUID(),
+      kind,
+      couponId: coupon.id,
+      couponTitle: coupon.title,
+      strategy,
+      doubles,
+      lines,
+      cost: lines * rules.stake,
+      probability: slipProbability(sel, fixtures, excluded),
+      at: new Date().toISOString(),
+    });
+  };
 
   const saveSlip = (name: string) => {
     const t = new Date().toISOString();
@@ -166,7 +206,11 @@ export default function App() {
                   rules={rules}
                   strategy={strategy}
                   doubles={doubles}
-                  onApply={actions.applyStrategy}
+                  onApply={generate}
+                  onUndo={actions.undo}
+                  onRedo={actions.redo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
                   onTool={(id) => modals.open(id, id === "drift" ? modals.fixtureId ?? first?.id : undefined)}
                 />
               </div>
@@ -202,32 +246,41 @@ export default function App() {
         </p>
       </main>
 
-      <ImportModal open={modals.isOpen("import")} onClose={modals.close} kind={kind} onLoad={actions.loadCoupon} />
-      <ExportModal open={modals.isOpen("export")} onClose={modals.close} coupon={coupon} selections={selections} excluded={excluded} rules={rules} slipName={strategyLabel} />
-      <BudgetModal open={modals.isOpen("budget")} onClose={modals.close} fixtures={fixtures} rules={rules} onApply={(s) => actions.setSelections(s)} />
-      <HedgeModal open={modals.isOpen("hedge")} onClose={modals.close} fixtures={fixtures} rules={rules} onUse={(s) => actions.setSelections(s)} />
-      <SimulatorModal open={modals.isOpen("simulate")} onClose={modals.close} fixtures={fixtures} selections={selections} excluded={excluded} rules={rules} />
-      {modals.isOpen("backtest") && <BacktestModal open onClose={modals.close} kind={kind} />}
-      {modals.isOpen("drift") && <DriftModal open onClose={modals.close} fixtures={fixtures} initialId={modals.fixtureId} />}
-      <MatchModal open={modals.isOpen("match")} onClose={modals.close} fixture={fixtures.find((f) => f.id === modals.fixtureId)} />
-      {modals.isOpen("results") && (
-        <ResultsModal open onClose={modals.close} kind={kind} current={coupon} currentSelections={selections} slips={auth.slips} />
-      )}
-      <SlipsModal
-        open={modals.isOpen("slips")}
-        onClose={modals.close}
-        slips={auth.slips}
-        currentCouponId={coupon.id}
-        onRestore={(s) => actions.restoreSlip(s.selections, s.excluded, s.strategy)}
-        onDelete={auth.remove}
-        syncLabel={
-          auth.user
-            ? `Synced to Firestore as ${auth.user.email ?? auth.user.displayName}${auth.syncError ? ` · sync error: ${auth.syncError}` : ""}`
-            : auth.firebaseEnabled
-              ? "Stored on this device. Sign in with Google to sync across devices."
-              : "Stored on this device (cloud sync not configured)."
-        }
-      />
+      <Suspense fallback={null}>
+        {modals.isOpen("import") && <ImportModal open onClose={modals.close} kind={kind} onLoad={actions.loadCoupon} />}
+        {modals.isOpen("export") && <ExportModal open onClose={modals.close} coupon={coupon} selections={selections} excluded={excluded} rules={rules} slipName={strategyLabel} />}
+        {modals.isOpen("budget") && <BudgetModal open onClose={modals.close} fixtures={fixtures} rules={rules} onApply={(s) => actions.setSelections(s)} />}
+        {modals.isOpen("hedge") && <HedgeModal open onClose={modals.close} fixtures={fixtures} rules={rules} onUse={(s) => actions.setSelections(s)} />}
+        {modals.isOpen("simulate") && <SimulatorModal open onClose={modals.close} fixtures={fixtures} selections={selections} excluded={excluded} rules={rules} />}
+        {modals.isOpen("backtest") && <BacktestModal open onClose={modals.close} kind={kind} />}
+        {modals.isOpen("drift") && <DriftModal open onClose={modals.close} fixtures={fixtures} initialId={modals.fixtureId} />}
+        {modals.isOpen("match") && <MatchModal open onClose={modals.close} fixture={fixtures.find((f) => f.id === modals.fixtureId)} />}
+        {modals.isOpen("portfolio") && (
+          <PortfolioModal open onClose={modals.close} coupon={coupon} currentSelections={selections} slips={auth.slips} />
+        )}
+        {modals.isOpen("results") && (
+          <ResultsModal open onClose={modals.close} kind={kind} current={coupon} currentSelections={selections} slips={auth.slips} />
+        )}
+        {modals.isOpen("slips") && (
+          <SlipsModal
+            open
+            onClose={modals.close}
+            slips={auth.slips}
+            currentCouponId={coupon.id}
+            onRestore={(s) => actions.restoreSlip(s.selections, s.excluded, s.strategy)}
+            runs={auth.runs.filter((r) => r.kind === kind)}
+            onReapply={(r) => generate(r.strategy, r.doubles)}
+            onDelete={auth.remove}
+            syncLabel={
+              auth.user
+                ? `Synced to Firestore as ${auth.user.email ?? auth.user.displayName}${auth.syncError ? ` · sync error: ${auth.syncError}` : ""}`
+                : auth.firebaseEnabled
+                  ? "Stored on this device. Sign in with Google to sync across devices."
+                  : "Stored on this device (cloud sync not configured)."
+            }
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
