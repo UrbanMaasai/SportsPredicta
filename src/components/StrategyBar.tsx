@@ -31,7 +31,7 @@ export function StrategyBar({
   const lines = 2 ** d;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
         <Segmented
           label="Strategy"
           value={s}

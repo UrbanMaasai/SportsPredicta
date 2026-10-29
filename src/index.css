@@ -52,15 +52,15 @@
   .btn-primary { @apply bg-accent border-accent text-white hover:bg-accent/90; }
   .btn-ghost { @apply border-transparent bg-transparent hover:bg-sunken; }
 
-  .seg { @apply inline-flex rounded-md bg-sunken p-0.5; }
+  .seg { @apply inline-flex max-w-full shrink-0 overflow-x-auto rounded-md bg-sunken p-0.5; }
   .seg > button {
-    @apply h-7 px-3 rounded-[5px] text-sm font-medium text-ink-2 hover:text-ink transition-colors;
+    @apply whitespace-nowrap h-7 px-3 rounded-[5px] text-sm font-medium text-ink-2 hover:text-ink transition-colors;
   }
   .seg > button[aria-pressed="true"], .seg > button[aria-selected="true"] { @apply bg-surface text-ink shadow-sm; }
   .seg > button:disabled { @apply opacity-40 pointer-events-none; }
 
-  .seg-dark { @apply inline-flex rounded-md bg-bar-2 p-0.5; }
-  .seg-dark > button { @apply h-7 px-3 rounded-[5px] text-sm font-medium text-slate-400 hover:text-white transition-colors; }
+  .seg-dark { @apply inline-flex max-w-full shrink-0 overflow-x-auto rounded-md bg-bar-2 p-0.5; }
+  .seg-dark > button { @apply h-7 whitespace-nowrap px-3 rounded-[5px] text-sm font-medium text-slate-400 hover:text-white transition-colors; }
   .seg-dark > button[aria-pressed="true"], .seg-dark > button[aria-selected="true"] { @apply bg-slate-700 text-white; }
 
   .panel { @apply rounded-lg border border-line bg-surface; }
