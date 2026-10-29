@@ -11,12 +11,20 @@ export function StrategyBar({
   doubles,
   onApply,
   onTool,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: {
   rules: JackpotRules;
   strategy: StrategyId | "custom";
   doubles: number;
   onApply: (s: StrategyId, d: number) => void;
   onTool: (id: ModalId) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }) {
   const [s, setS] = useState<StrategyId>(strategy === "custom" ? "balanced" : strategy);
   const [d, setD] = useState(doubles);
@@ -47,11 +55,20 @@ export function StrategyBar({
         <button className="btn btn-primary" onClick={() => onApply(s, d)}>
           Generate
         </button>
+        <span className="flex">
+          <button className="btn btn-ghost px-2" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl/⌘+Z)" aria-label="Undo">
+            ↶
+          </button>
+          <button className="btn btn-ghost px-2" onClick={onRedo} disabled={!canRedo} title="Redo (Ctrl/⌘+Shift+Z)" aria-label="Redo">
+            ↷
+          </button>
+        </span>
         <span className="meta hidden lg:inline">{STRATEGIES[s].blurb}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1">
         <button className="btn btn-ghost" onClick={() => onTool("budget")}>Budget</button>
         <button className="btn btn-ghost" onClick={() => onTool("hedge")}>Hedge</button>
+        <button className="btn btn-ghost" onClick={() => onTool("portfolio")}>Portfolio</button>
         <button className="btn btn-ghost" onClick={() => onTool("simulate")}>Simulate</button>
         <button className="btn btn-ghost" onClick={() => onTool("backtest")}>Backtest</button>
         <button className="btn btn-ghost" onClick={() => onTool("drift")}>Odds drift</button>

@@ -25,6 +25,7 @@ import { DriftModal } from "./components/modals/DriftModal";
 import { MatchModal } from "./components/modals/MatchModal";
 import { SlipsModal } from "./components/modals/SlipsModal";
 import { ResultsModal } from "./components/modals/ResultsModal";
+import { PortfolioModal } from "./components/modals/PortfolioModal";
 import { decodeShare, shareFromHash } from "./domain/share";
 import { isCouponOpen } from "./domain/fixtures";
 
@@ -48,7 +49,7 @@ function loadPrizes(): Record<JackpotKind, PrizeTable> {
 }
 
 export default function App() {
-  const { kind, setKind, view, setView, state, rules, actions, restoredNotice } = useJackpot();
+  const { kind, setKind, view, setView, state, rules, actions, canUndo, canRedo, restoredNotice } = useJackpot();
   const modals = useModals();
   const now = useNow(1000);
   const auth = useAuthAndSlips();
@@ -56,6 +57,22 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(
     restoredNotice.length ? "A saved coupon had already kicked off, so it was replaced with the upcoming round." : null,
   );
+
+  // Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl+Y redo — except while typing in a field or with a dialog open.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) actions.undo();
+      else if ((key === "z" && e.shiftKey) || key === "y") actions.redo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [actions]);
 
   // Open a shared slip from a `#slip=...` link, then clear the fragment so a reload keeps the session.
   useEffect(() => {
@@ -167,6 +184,10 @@ export default function App() {
                   strategy={strategy}
                   doubles={doubles}
                   onApply={actions.applyStrategy}
+                  onUndo={actions.undo}
+                  onRedo={actions.redo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
                   onTool={(id) => modals.open(id, id === "drift" ? modals.fixtureId ?? first?.id : undefined)}
                 />
               </div>
@@ -210,6 +231,9 @@ export default function App() {
       {modals.isOpen("backtest") && <BacktestModal open onClose={modals.close} kind={kind} />}
       {modals.isOpen("drift") && <DriftModal open onClose={modals.close} fixtures={fixtures} initialId={modals.fixtureId} />}
       <MatchModal open={modals.isOpen("match")} onClose={modals.close} fixture={fixtures.find((f) => f.id === modals.fixtureId)} />
+      {modals.isOpen("portfolio") && (
+        <PortfolioModal open onClose={modals.close} coupon={coupon} currentSelections={selections} slips={auth.slips} />
+      )}
       {modals.isOpen("results") && (
         <ResultsModal open onClose={modals.close} kind={kind} current={coupon} currentSelections={selections} slips={auth.slips} />
       )}

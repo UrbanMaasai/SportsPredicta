@@ -54,6 +54,8 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 - **Insights**: predictability and draw-probability trend by leg, a momentum differential chart, bookmaker margin, and a league breakdown.
 - **Match detail**: market vs form-model probabilities, head-to-head margin bars, a tactical radar, and odds drift.
 - **Budget optimiser**: an exact dynamic-programming knapsack that picks which legs to double or triple for the highest win probability within a KES budget and the rule caps.
+- **Slip portfolio**: choose up to 12 slips for the current coupon (the current slip plus saved ones). It shows the total cost and the exact chance that at least one lands. It also counts duplicate lines you're paying for twice, and shows per leg which outcomes no slip covers.
+- **Keyboard and undo**: in the coupon grid, ↑/↓ (or j/k) move between legs and `1`, `X` or `2` toggles a pick. Ctrl/⌘+Z undoes pick changes, and Ctrl/⌘+Shift+Z or Ctrl+Y redoes them (there are buttons next to Generate too).
 - **Hedging portfolio**: Banker, Draw hedge and High payout tickets. Combined coverage is computed exactly by inclusion–exclusion.
 - **Live matchday simulator**: a 90-minute clock with Poisson goals from each fixture's odds and live tracking of which tiers your ticket still survives.
 - **Backtesting**: hit rate, tier hits and ROI per strategy, run on your own settled rounds, an imported archive, or a simulated one.
@@ -96,4 +98,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 126 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, session restore, App integration and the API routes.
+`npm test` runs 139 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, session restore, App integration and the API routes.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import type { Fixture, Outcome, Selections } from "../domain/types";
 import type { JackpotRules } from "../domain/jackpot";
 import { countdown } from "../domain/fixtures";
@@ -47,6 +47,25 @@ export function CouponGrid({
   const [slumpOnly, setSlumpOnly] = useState(false);
   const slumpCount = useMemo(() => filterSlumps(fixtures).length, [fixtures]);
   const rows = slumpOnly ? filterSlumps(fixtures) : fixtures;
+
+  /** Keyboard picking: ↑/↓ (or j/k) move between legs, 1 / X / 2 toggle a pick on the focused leg. */
+  const onRowKey = (e: KeyboardEvent<HTMLTableSectionElement>) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tr = (e.target as HTMLElement).closest<HTMLTableRowElement>("tr[data-fixture]");
+    if (!tr || e.target !== tr) return; // leave keys inside buttons and inputs alone
+    const pick = ({ "1": "1", x: "X", X: "X", "2": "2" } as Record<string, Outcome>)[e.key];
+    if (pick) {
+      e.preventDefault();
+      onToggle(tr.dataset.fixture!, pick);
+      return;
+    }
+    const move = e.key === "ArrowDown" || e.key === "j" ? 1 : e.key === "ArrowUp" || e.key === "k" ? -1 : 0;
+    if (move) {
+      e.preventDefault();
+      const target = (move > 0 ? tr.nextElementSibling : tr.previousElementSibling) as HTMLElement | null;
+      target?.focus();
+    }
+  };
   const tiered = rules.subTiers.length > 0;
   const maxExcl = tiered ? rules.legs - Math.min(...rules.subTiers) : 0;
 
@@ -85,7 +104,7 @@ export function CouponGrid({
             {tiered && <th className="text-right">Exclude</th>}
           </tr>
         </thead>
-        <tbody>
+        <tbody onKeyDown={onRowKey}>
           {rows.length === 0 && (
             <tr>
               <td colSpan={tiered ? 7 : 6} className="py-10 text-center text-ink-3">
@@ -99,7 +118,15 @@ export function CouponGrid({
             const isExcl = excluded.includes(f.id);
             const pred = predictability(f.odds);
             return (
-              <tr key={f.id} data-excluded={isExcl} data-slump={side ?? undefined}>
+              <tr
+                key={f.id}
+                data-excluded={isExcl}
+                data-slump={side ?? undefined}
+                data-fixture={f.id}
+                tabIndex={0}
+                aria-label={`Leg ${f.leg}: ${f.home} v ${f.away}`}
+                className="focus:outline-none focus-visible:[&>td]:bg-accent-soft"
+              >
                 <td className="num text-ink-3">{f.leg}</td>
                 <td className="min-w-[220px]">
                   <button className="text-left" onClick={() => onOpenMatch(f.id)}>
