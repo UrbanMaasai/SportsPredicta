@@ -57,6 +57,7 @@
     @apply h-7 px-3 rounded-[5px] text-sm font-medium text-ink-2 hover:text-ink transition-colors;
   }
   .seg > button[aria-pressed="true"], .seg > button[aria-selected="true"] { @apply bg-surface text-ink shadow-sm; }
+  .seg > button:disabled { @apply opacity-40 pointer-events-none; }
 
   .seg-dark { @apply inline-flex rounded-md bg-bar-2 p-0.5; }
   .seg-dark > button { @apply h-7 px-3 rounded-[5px] text-sm font-medium text-slate-400 hover:text-white transition-colors; }

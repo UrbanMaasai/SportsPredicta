@@ -1,6 +1,6 @@
 import { useCallback, useReducer } from "react";
 
-export type ModalId = "import" | "export" | "budget" | "hedge" | "simulate" | "backtest" | "drift" | "slips" | "match";
+export type ModalId = "import" | "export" | "budget" | "hedge" | "simulate" | "backtest" | "drift" | "slips" | "match" | "results";
 
 export interface ModalState {
   open: ModalId | null;
