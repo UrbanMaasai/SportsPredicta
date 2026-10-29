@@ -14,7 +14,7 @@ const KINDS: { value: JackpotKind; label: string }[] = [
   { value: "MID13", label: "Midweek 13" },
 ];
 
-const action = "h-8 rounded-md px-2.5 sm:px-3 text-sm font-medium text-slate-300 hover:bg-bar-2 hover:text-white";
+const action = "h-8 rounded-md px-2 sm:px-3 text-sm font-medium text-slate-300 hover:bg-bar-2 hover:text-white";
 
 export function TopBar({
   kind,
@@ -43,7 +43,7 @@ export function TopBar({
 }) {
   return (
     <header className="sticky top-0 z-30 bg-bar text-white">
-      <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr]">
+      <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr]">
         {/* Zone 1: wordmark */}
         <a href="/" className="shrink-0 justify-self-start text-[15px] font-bold tracking-tight">
           SportsPredicta
@@ -56,14 +56,14 @@ export function TopBar({
         </nav>
 
         {/* Zone 3: actions */}
-        <div className="flex items-center justify-self-end gap-1">
+        <div className="flex items-center justify-self-end gap-0.5 sm:gap-1">
           <button className={action} onClick={onImport}>
             Import
           </button>
           <button className={action} onClick={onSlips}>
             Slips
           </button>
-          <button className="h-8 rounded-md bg-white px-3 text-sm font-semibold text-bar hover:bg-slate-200" onClick={onExport}>
+          <button className="h-8 rounded-md bg-white px-2.5 text-sm font-semibold text-bar hover:bg-slate-200 sm:px-3" onClick={onExport}>
             Export
           </button>
           {authAvailable &&
