@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import type { JackpotKind, Slip } from "./domain/types";
 import { DEFAULT_PRIZES, type PrizeTable } from "./domain/jackpot";
 import { countdown } from "./domain/fixtures";
-import { STRATEGIES } from "./domain/strategies";
+import { STRATEGIES, buildStrategy, slipProbability } from "./domain/strategies";
+import { combinations } from "./domain/jackpot";
+import type { StrategyId } from "./domain/types";
 import { useJackpot } from "./hooks/useJackpot";
 import { useModals } from "./hooks/useModals";
 import { useNow } from "./hooks/useNow";
@@ -108,6 +110,25 @@ export default function App() {
   const strategyLabel = strategy === "custom" ? "Custom" : STRATEGIES[strategy].label;
   const first = fixtures[0];
 
+  /** Generate a strategy slip and log the run to strategy history. */
+  const generate = (strategy: StrategyId, doubles: number) => {
+    actions.applyStrategy(strategy, doubles);
+    const sel = buildStrategy(strategy, fixtures, doubles);
+    const lines = combinations(sel, fixtures);
+    auth.recordRun({
+      id: crypto.randomUUID(),
+      kind,
+      couponId: coupon.id,
+      couponTitle: coupon.title,
+      strategy,
+      doubles,
+      lines,
+      cost: lines * rules.stake,
+      probability: slipProbability(sel, fixtures, excluded),
+      at: new Date().toISOString(),
+    });
+  };
+
   const saveSlip = (name: string) => {
     const t = new Date().toISOString();
     const slip: Slip = {
@@ -183,7 +204,7 @@ export default function App() {
                   rules={rules}
                   strategy={strategy}
                   doubles={doubles}
-                  onApply={actions.applyStrategy}
+                  onApply={generate}
                   onUndo={actions.undo}
                   onRedo={actions.redo}
                   canUndo={canUndo}
@@ -243,6 +264,8 @@ export default function App() {
         slips={auth.slips}
         currentCouponId={coupon.id}
         onRestore={(s) => actions.restoreSlip(s.selections, s.excluded, s.strategy)}
+        runs={auth.runs.filter((r) => r.kind === kind)}
+        onReapply={(r) => generate(r.strategy, r.doubles)}
         onDelete={auth.remove}
         syncLabel={
           auth.user

@@ -9,7 +9,8 @@ async function post<T>(url: string, body: unknown): Promise<T> {
 }
 
 export const api = {
-  live: (kind: JackpotKind) => post<{ fixtures: RawFixture[]; sources: { title: string; uri: string }[] }>("/api/fixtures/live", { kind }),
+  live: (kind: JackpotKind, refresh = false) =>
+    post<{ fixtures: RawFixture[]; sources: { title: string; uri: string }[] }>("/api/fixtures/live", { kind, refresh }),
   ocr: (image: string, mimeType: string) => post<{ fixtures: RawFixture[] }>("/api/fixtures/ocr", { image, mimeType }),
   parse: (text: string) => post<{ fixtures: RawFixture[]; engine: string }>("/api/fixtures/parse", { text }),
 };

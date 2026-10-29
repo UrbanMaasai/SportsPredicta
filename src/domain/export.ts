@@ -38,6 +38,29 @@ export function parseSms(code: string, rules: JackpotRules): { ok: boolean; pick
   return { ok: true, picks: m[2].split("") as Outcome[] };
 }
 
+/** Country flags by country name and by well-known league name (lower-case keys). */
+const FLAGS: Record<string, string> = {
+  england: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", scotland: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", wales: "🏴󠁧󠁢󠁷󠁬󠁳󠁿", spain: "🇪🇸", italy: "🇮🇹", germany: "🇩🇪", france: "🇫🇷",
+  netherlands: "🇳🇱", portugal: "🇵🇹", belgium: "🇧🇪", turkey: "🇹🇷", greece: "🇬🇷", austria: "🇦🇹", switzerland: "🇨🇭",
+  denmark: "🇩🇰", sweden: "🇸🇪", norway: "🇳🇴", poland: "🇵🇱", russia: "🇷🇺", ukraine: "🇺🇦", brazil: "🇧🇷", argentina: "🇦🇷",
+  usa: "🇺🇸", mexico: "🇲🇽", japan: "🇯🇵", "south korea": "🇰🇷", australia: "🇦🇺", kenya: "🇰🇪", "south africa": "🇿🇦",
+  egypt: "🇪🇬", nigeria: "🇳🇬", "saudi arabia": "🇸🇦", czechia: "🇨🇿", croatia: "🇭🇷", serbia: "🇷🇸", romania: "🇷🇴",
+  "premier league": "🏴󠁧󠁢󠁥󠁮󠁧󠁿", championship: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", "la liga": "🇪🇸", laliga: "🇪🇸", "serie a": "🇮🇹",
+  bundesliga: "🇩🇪", "ligue 1": "🇫🇷", eredivisie: "🇳🇱", "primeira liga": "🇵🇹", "liga portugal": "🇵🇹", mls: "🇺🇸",
+  "champions league": "🏆", "europa league": "🏆", "conference league": "🏆",
+};
+
+/** Flag emoji for a fixture's league ("England · Premier League", "Serie A", …); ⚽ when unknown. */
+export function leagueFlag(league: string): string {
+  const l = league.toLowerCase();
+  const country = l.split(/\s*[·\-–:|]\s*/)[0].trim();
+  if (FLAGS[country]) return FLAGS[country];
+  const hit = Object.keys(FLAGS)
+    .sort((a, b) => b.length - a.length)
+    .find((k) => l.includes(k));
+  return hit ? FLAGS[hit] : "⚽";
+}
+
 const PICK_LABEL: Record<Outcome, string> = { "1": "Home", X: "Draw", "2": "Away" };
 
 export function formatTelegram(
@@ -49,9 +72,9 @@ export function formatTelegram(
   const lines = combinations(selections, coupon.fixtures);
   const rows = coupon.fixtures.map((f) => {
     const picks = selections[f.id] ?? [];
-    const flag = picks.length > 1 ? "🔀" : "⚽";
     const odds = picks.map((p) => oddsFor(f.odds, p).toFixed(2)).join("/");
-    return `${flag} *${f.leg}.* ${f.home} vs ${f.away} — *${picks.join("/") || "?"}* (${odds || "–"})`;
+    const double = picks.length > 1 ? " 🔀" : "";
+    return `${leagueFlag(f.league)} *${f.leg}.* ${f.home} vs ${f.away} — *${picks.join("/") || "?"}*${double} (${odds || "–"})`;
   });
   const bestOdds = coupon.fixtures.reduce(
     (acc, f) => acc * Math.max(1, ...(selections[f.id] ?? []).map((p) => oddsFor(f.odds, p))),

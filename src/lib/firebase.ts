@@ -1,4 +1,4 @@
-import type { Slip } from "../domain/types";
+import type { Slip, StrategyRun } from "../domain/types";
 
 /**
  * Firebase Auth (Google sign-in) + Firestore slip storage. The SDK is only downloaded when
@@ -88,4 +88,15 @@ export async function remoteListSlips(uid: string): Promise<Slip[]> {
 export async function remoteDeleteSlip(uid: string, id: string): Promise<void> {
   const { db, fs } = await getSdk();
   await fs.deleteDoc(fs.doc(db, "users", uid, "slips", id));
+}
+
+export async function remoteSaveRun(uid: string, run: StrategyRun): Promise<void> {
+  const { db, fs } = await getSdk();
+  await fs.setDoc(fs.doc(db, "users", uid, "history", run.id), run);
+}
+
+export async function remoteListRuns(uid: string, max = 100): Promise<StrategyRun[]> {
+  const { db, fs } = await getSdk();
+  const snap = await fs.getDocs(fs.query(fs.collection(db, "users", uid, "history"), fs.orderBy("at", "desc"), fs.limit(max)));
+  return snap.docs.map((d) => d.data() as StrategyRun);
 }

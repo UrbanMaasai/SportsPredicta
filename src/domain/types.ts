@@ -58,3 +58,18 @@ export interface Slip {
   createdAt: string;
   updatedAt: string;
 }
+
+/** One run of the strategy generator, kept as history. */
+export interface StrategyRun {
+  id: string;
+  kind: JackpotKind;
+  couponId: string;
+  couponTitle: string;
+  strategy: StrategyId;
+  doubles: number;
+  lines: number;
+  cost: number;
+  /** Model probability that the generated slip lands. */
+  probability: number;
+  at: string;
+}

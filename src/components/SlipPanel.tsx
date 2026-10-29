@@ -40,6 +40,7 @@ export function SlipPanel({
   const sms = formatSms(selections, fixtures, rules);
   const tier = targetTier(rules, excluded.length);
   const plans = tierPlans(rules, prizes, cost);
+  const tiered = rules.subTiers.length > 0;
   const [copied, setCopied] = useState(false);
   const [editPools, setEditPools] = useState(false);
   const [name, setName] = useState("");
@@ -106,53 +107,53 @@ export function SlipPanel({
         </ul>
       </section>
 
-      {rules.subTiers.length > 0 && (
-        <section className="panel" aria-label="Prize tiers">
-          <div className="panel-h">
-            <span>Tiers</span>
-            <button className="text-xs font-medium text-accent hover:underline" onClick={() => setEditPools((v) => !v)}>
-              {editPools ? "Done" : "Edit pools"}
-            </button>
-          </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="meta text-left">
-                <th className="px-4 py-2 font-medium">Tier</th>
-                <th className="px-2 py-2 font-medium">Excl.</th>
-                <th className="px-2 py-2 text-right font-medium">Pool</th>
-                <th className="px-4 py-2 text-right font-medium">×Stake</th>
+      <section className="panel" aria-label="Prize tiers">
+        <div className="panel-h">
+          <span>{tiered ? "Tiers" : "Prize pool"}</span>
+          <button className="text-xs font-medium text-accent hover:underline" onClick={() => setEditPools((v) => !v)}>
+            {editPools ? "Done" : "Edit pools"}
+          </button>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="meta text-left">
+              <th className="px-4 py-2 font-medium">Tier</th>
+              {tiered && <th className="px-2 py-2 font-medium">Excl.</th>}
+              <th className="px-2 py-2 text-right font-medium">Pool</th>
+              <th className="px-4 py-2 text-right font-medium">×Stake</th>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((p) => (
+              <tr key={p.tier} className={`border-t border-line ${p.tier === tier ? "bg-accent-soft" : ""}`}>
+                <td className="num px-4 py-1.5 font-medium">
+                  {p.tier}/{rules.legs}
+                </td>
+                {tiered && <td className="num px-2 py-1.5 text-ink-2">{p.excludedCount}</td>}
+                <td className="num px-2 py-1.5 text-right">
+                  {editPools ? (
+                    <input
+                      type="number"
+                      className="input num h-7 w-28 text-right"
+                      value={prizes.pools[p.tier] ?? 0}
+                      onChange={(e) => onPrizes({ pools: { ...prizes.pools, [p.tier]: Math.max(0, Number(e.target.value) || 0) } })}
+                      aria-label={`Prize pool for ${p.tier} correct`}
+                    />
+                  ) : (
+                    kesCompact(p.pool)
+                  )}
+                </td>
+                <td className="num px-4 py-1.5 text-right text-ink-2">{p.leverage ? (p.leverage >= 1e4 ? `${Math.round(p.leverage / 1e3).toLocaleString()}K×` : `${Math.round(p.leverage).toLocaleString()}×`) : "—"}</td>
               </tr>
-            </thead>
-            <tbody>
-              {plans.map((p) => (
-                <tr key={p.tier} className={`border-t border-line ${p.tier === tier ? "bg-accent-soft" : ""}`}>
-                  <td className="num px-4 py-1.5 font-medium">
-                    {p.tier}/{rules.legs}
-                  </td>
-                  <td className="num px-2 py-1.5 text-ink-2">{p.excludedCount}</td>
-                  <td className="num px-2 py-1.5 text-right">
-                    {editPools ? (
-                      <input
-                        type="number"
-                        className="input num h-7 w-28 text-right"
-                        value={prizes.pools[p.tier] ?? 0}
-                        onChange={(e) => onPrizes({ pools: { ...prizes.pools, [p.tier]: Math.max(0, Number(e.target.value) || 0) } })}
-                        aria-label={`Prize pool for ${p.tier} correct`}
-                      />
-                    ) : (
-                      kesCompact(p.pool)
-                    )}
-                  </td>
-                  <td className="num px-4 py-1.5 text-right text-ink-2">{p.leverage ? (p.leverage >= 1e4 ? `${Math.round(p.leverage / 1e3).toLocaleString()}K×` : `${Math.round(p.leverage).toLocaleString()}×`) : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="meta border-t border-line px-4 py-2">
-            Tick legs under Exclude to target a sub-jackpot. Pools are editable — set them from the live coupon.
-          </p>
-        </section>
-      )}
+            ))}
+          </tbody>
+        </table>
+        <p className="meta border-t border-line px-4 py-2">
+          {tiered
+            ? "Tick legs under Exclude to target a sub-jackpot. Pools are editable — set them from the live coupon."
+            : "Single-tier jackpot: all legs must be correct. Set the pool from the live coupon."}
+        </p>
+      </section>
 
       <section className="panel" aria-label="SMS">
         <div className="panel-h">
