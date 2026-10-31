@@ -173,9 +173,15 @@ export default function App() {
               <span>
                 <span className="num">{fixtures.length}</span> fixtures
               </span>
-              {first && (
+              {first && !first.kickoffEstimated && (
                 <span>
                   First kickoff in <time className="num" dateTime={first.kickoff}>{countdown(first.kickoff, now)}</time>
+                </span>
+              )}
+              {fixtures.some((f) => f.kickoffEstimated) && (
+                <span className="text-warn">
+                  <span className="num">{fixtures.filter((f) => f.kickoffEstimated).length}</span> kickoff time
+                  {fixtures.filter((f) => f.kickoffEstimated).length === 1 ? "" : "s"} missing from the source
                 </span>
               )}
               <span className={fixtures[0]?.source === "seed" ? "text-warn" : undefined}>{SOURCE_LABEL[fixtures[0]?.source ?? "seed"]}</span>
@@ -187,6 +193,23 @@ export default function App() {
             </button>
           )}
         </div>
+
+        {!isCouponOpen(coupon, new Date(now)) && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warn/40 bg-warn-soft px-4 py-2 text-sm" role="alert">
+            <span>
+              <span className="font-medium text-warn">This coupon has closed.</span> Its first match kicked off, so SportPesa no longer accepts
+              bets on it. Settle it under Results, or load the next round.
+            </span>
+            <span className="flex gap-2">
+              <button className="btn h-7" onClick={() => modals.open("import")}>
+                Import next round
+              </button>
+              <button className="btn btn-ghost h-7" onClick={actions.resetSample}>
+                Next sample
+              </button>
+            </span>
+          </div>
+        )}
 
         {notice && (
           <div className="mb-4 flex items-center justify-between rounded-md border border-line bg-surface px-4 py-2 text-sm" role="status">

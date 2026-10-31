@@ -114,3 +114,35 @@ describe("results lookup endpoint", () => {
     expect(fetchResults).toHaveBeenCalledWith("MID13", [{ home: "Arsenal", away: "Chelsea", kickoff: "2026-10-25T14:00:00.000Z" }]);
   });
 });
+
+describe("rate limiter behind a proxy", () => {
+  it("warns once when X-Forwarded-For arrives without trust proxy", async () => {
+    const { rateLimit } = await import("./guard");
+    const warn = vi.fn();
+    const app = express();
+    app.use(rateLimit({ limit: 100, windowMs: 60_000, warn }));
+    app.get("/", (_req, res) => res.send("ok"));
+    server = app.listen(0);
+    await new Promise((r) => server!.once("listening", r));
+    const url = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
+    await fetch(url);
+    expect(warn).not.toHaveBeenCalled();
+    await fetch(url, { headers: { "X-Forwarded-For": "1.2.3.4" } });
+    await fetch(url, { headers: { "X-Forwarded-For": "5.6.7.8" } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/TRUST_PROXY/);
+  });
+
+  it("stays quiet when trust proxy is configured", async () => {
+    const { rateLimit } = await import("./guard");
+    const warn = vi.fn();
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(rateLimit({ limit: 100, windowMs: 60_000, warn }));
+    app.get("/", (_req, res) => res.send("ok"));
+    server = app.listen(0);
+    await new Promise((r) => server!.once("listening", r));
+    await fetch(`http://127.0.0.1:${(server!.address() as AddressInfo).port}/`, { headers: { "X-Forwarded-For": "1.2.3.4" } });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

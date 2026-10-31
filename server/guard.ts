@@ -17,9 +17,29 @@ export function withTimeout<T>(p: Promise<T>, ms: number, what = "Upstream reque
  * Fixed-window rate limiter keyed by client IP. In-memory, so it is per server process —
  * enough to stop one client running up the Gemini bill; put a shared limiter in front when scaling out.
  */
-export function rateLimit({ limit, windowMs, now = Date.now }: { limit: number; windowMs: number; now?: () => number }) {
+export function rateLimit({
+  limit,
+  windowMs,
+  now = Date.now,
+  warn = (msg: string) => console.warn(msg),
+}: {
+  limit: number;
+  windowMs: number;
+  now?: () => number;
+  warn?: (msg: string) => void;
+}) {
   const hits = new Map<string, { start: number; count: number }>();
+  let warnedProxy = false;
   return (req: Request, res: Response, next: NextFunction) => {
+    // Behind a reverse proxy without "trust proxy", every client shows up as the proxy's IP and
+    // shares one bucket. Trusting proxies by default would let clients spoof X-Forwarded-For, so warn.
+    if (!warnedProxy && req.headers["x-forwarded-for"] && !req.app?.get("trust proxy")) {
+      warnedProxy = true;
+      warn(
+        "[rate-limit] Requests carry X-Forwarded-For but TRUST_PROXY is not set, so all clients share one rate-limit bucket. " +
+          "Set TRUST_PROXY (e.g. 1 for a single proxy hop) when running behind a load balancer.",
+      );
+    }
     const key = req.ip ?? "unknown";
     const t = now();
     let w = hits.get(key);

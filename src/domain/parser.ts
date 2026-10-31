@@ -61,8 +61,8 @@ export function parseCouponText(text: string, now = new Date()): RawFixture[] {
 
 /** Convert raw fixtures into coupon fixtures, filling kickoff/form where missing. */
 export function toFixtures(raw: RawFixture[], source: Fixture["source"], couponId: string, fallbackKickoff: Date): Fixture[] {
-  return raw.map((r, i) =>
-    enrichFixture({
+  return raw.map((r, i) => {
+    const f = enrichFixture({
       id: `${couponId}-${i + 1}`,
       leg: i + 1,
       home: r.home,
@@ -73,8 +73,9 @@ export function toFixtures(raw: RawFixture[], source: Fixture["source"], couponI
       source,
       homeForm: r.homeForm,
       awayForm: r.awayForm,
-    }),
-  );
+    });
+    return r.kickoff ? f : { ...f, kickoffEstimated: true };
+  });
 }
 
 /** Loose runtime validation for fixtures returned by the AI endpoints. */

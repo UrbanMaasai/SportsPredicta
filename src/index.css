@@ -11,7 +11,7 @@
   --color-line-strong: #cfd4dc;
   --color-ink: #0f172a;
   --color-ink-2: #475569;
-  --color-ink-3: #7b8697;
+  --color-ink-3: #646d7b; /* ≥4.5:1 on surface, canvas and sunken (WCAG AA) */
   --color-bar: #0b1220;
   --color-bar-2: #1b2433;
   --color-accent: #0f766e;

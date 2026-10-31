@@ -159,7 +159,7 @@ export function applyFetchedResults(
   const results: Results = {};
   for (const m of Array.isArray(data.matches) ? data.matches : []) {
     const f = fixtures[m?.index];
-    if (!f || new Date(f.kickoff).getTime() > now) continue;
+    if (!f || (!f.kickoffEstimated && new Date(f.kickoff).getTime() > now)) continue;
     const status = String(m.status ?? "FT").toUpperCase();
     if (!["FT", "AET", "PEN", "FINISHED"].includes(status)) continue;
     if (!isGoals(m.homeGoals) || !isGoals(m.awayGoals)) continue;

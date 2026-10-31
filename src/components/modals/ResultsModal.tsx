@@ -46,7 +46,9 @@ export function ResultsModal({
   const [paste, setPaste] = useState("");
   const [unmatched, setUnmatched] = useState<string[]>([]);
   const [notStarted, setNotStarted] = useState(0);
-  const started = (kickoff: string) => new Date(kickoff).getTime() <= now;
+  /** Results are accepted once a match has kicked off — or when its time is unknown (placeholder slot). */
+  const started = (f: { kickoff: string; kickoffEstimated?: boolean }) =>
+    Boolean(f.kickoffEstimated) || new Date(f.kickoff).getTime() <= now;
   const [fetching, setFetching] = useState(false);
   const [fetchNote, setFetchNote] = useState<{ text: string; tone: "ok" | "warn" | "bad"; sources?: { title: string; uri: string }[] } | null>(null);
 
@@ -136,11 +138,11 @@ export function ResultsModal({
               </thead>
               <tbody>
                 {round.coupon.fixtures.map((f) => (
-                  <tr key={f.id} title={started(f.kickoff) ? undefined : "Not kicked off yet"}>
+                  <tr key={f.id} title={started(f) ? undefined : "Not kicked off yet"}>
                     <td className="num text-ink-3">{f.leg}</td>
                     <td>
                       {f.home} <span className="text-ink-3">v</span> {f.away}
-                      {!started(f.kickoff) && <span className="meta ml-2">not started</span>}
+                      {!started(f) && <span className="meta ml-2">not started</span>}
                     </td>
                     <td className="text-right">
                       <div className="seg" role="group" aria-label={`Result for leg ${f.leg}`}>
@@ -149,7 +151,7 @@ export function ResultsModal({
                             key={o}
                             type="button"
                             aria-pressed={round.results[f.id] === o}
-                            disabled={!started(f.kickoff)}
+                            disabled={!started(f)}
                             onClick={() => {
                               const next = { ...round.results };
                               if (next[f.id] === o) delete next[f.id];
@@ -171,7 +173,7 @@ export function ResultsModal({
               <div>
                 <button
                   className="btn btn-primary w-full"
-                  disabled={fetching || !round.coupon.fixtures.some((f) => started(f.kickoff) && !round.results[f.id])}
+                  disabled={fetching || !round.coupon.fixtures.some((f) => started(f) && !round.results[f.id])}
                   onClick={fetchResults}
                   title="Search for full-time scores and published payouts (needs the server's Gemini key)"
                 >
@@ -213,7 +215,7 @@ export function ResultsModal({
                     const parsed = parseResults(paste, round.coupon.fixtures);
                     // Results only count for fixtures that have actually kicked off.
                     const playable = Object.fromEntries(
-                      Object.entries(parsed.results).filter(([id]) => started(round.coupon.fixtures.find((f) => f.id === id)!.kickoff)),
+                      Object.entries(parsed.results).filter(([id]) => started(round.coupon.fixtures.find((f) => f.id === id)!)),
                     );
                     update({ ...round.results, ...playable });
                     setUnmatched(parsed.unmatched);
