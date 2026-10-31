@@ -29,7 +29,7 @@ Other scripts: `npm test` (Vitest), `npm run typecheck`.
 | `VITE_FIREBASE_*` | client (build time) | Google sign-in and Firestore slip sync. Without it the app runs in LocalStorage-only mode and the Firebase SDK is never downloaded. |
 | `PORT` | server | Defaults to `3000`. |
 | `API_RATE_LIMIT_PER_MIN` | server | Requests per client per minute to `/api/fixtures/*`, all of which may call Gemini. Defaults to `20`. |
-| `TRUST_PROXY` | server | Set behind a reverse proxy (`true` or a hop count) so rate limiting sees the real client IP. |
+| `TRUST_PROXY` | server | Set behind a reverse proxy (`true` or a hop count) so rate limiting sees the real client IP. Without it, every client shares one bucket, and the server logs a warning when it sees `X-Forwarded-For`. |
 
 Firestore security rules are in `firestore.rules`. Slips live at `users/{uid}/slips/{slipId}` and strategy history at `users/{uid}/history/{runId}`. Both are readable and writable only by their owner.
 
@@ -77,8 +77,17 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 
 Probabilities are estimates. Nothing here guarantees a winning ticket. Bet responsibly · 18+.
 
+## Offline and installable
+
+- **Installable:** the app ships a web app manifest and 192/512 px icons (including a maskable icon), so phones can install it to the home screen.
+- **Offline:** a service worker (`public/sw.js`, production builds only) caches the app shell, the content-hashed bundles and Google Fonts. Because the coupon, picks, saved slips, results and history live in LocalStorage, every tool keeps working offline, including dialogs never opened before, since their code is prefetched when the app is idle.
+- **Network-only:** `/api/*` is never cached. Live search, OCR, fetching results and cloud sync need a connection, and say so when offline.
+- **Updates:** a new deploy installs in the background, and the app offers *Reload to update*. It never switches versions mid-session on its own. `sw.js` and the manifest are served with `Cache-Control: no-cache`, and `/assets/*` as immutable.
+
 ## Resilience
 
+- If the first match of the current coupon kicks off while the app is open, a notice says the coupon has closed and offers to import the next round.
+- Fixtures imported without a kickoff time show *Time TBC* instead of an invented countdown. Results can still be entered for them.
 - An error boundary replaces a crashed view with a recovery screen. *Reset session* clears only the working coupon and picks; saved slips, results and history stay.
 - Dialogs are code-split and load on first open, which keeps the initial bundle small.
 - Focus is trapped inside dialogs while they are open.
@@ -116,4 +125,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 160 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, the results lookup, the error boundary and the dialog focus trap, session restore, App integration and the API routes.
+`npm test` runs 183 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, the results lookup, the error boundary and the dialog focus trap, service-worker routing and the update handshake, offline handling, palette contrast (WCAG AA), session restore, App integration and the API routes.

@@ -2,7 +2,16 @@ import type { RawFixture } from "../domain/parser";
 import type { JackpotKind } from "../domain/types";
 
 async function post<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error(
+      typeof navigator !== "undefined" && !navigator.onLine
+        ? "You're offline. Connect to the internet to use this."
+        : "Couldn't reach the server. Check your connection and try again.",
+    );
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
   return data as T;

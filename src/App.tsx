@@ -19,19 +19,45 @@ import { ConsensusView } from "./components/views/ConsensusView";
 import { InsightsView } from "./components/views/InsightsView";
 import { decodeShare, shareFromHash } from "./domain/share";
 import { isCouponOpen } from "./domain/fixtures";
+import { useOnline, useUpdateReady } from "./lib/pwa";
 
 // Dialogs load on first open, keeping them out of the initial bundle.
-const ImportModal = lazy(() => import("./components/modals/ImportModal").then((m) => ({ default: m.ImportModal })));
-const ExportModal = lazy(() => import("./components/modals/ExportModal").then((m) => ({ default: m.ExportModal })));
-const BudgetModal = lazy(() => import("./components/modals/BudgetModal").then((m) => ({ default: m.BudgetModal })));
-const HedgeModal = lazy(() => import("./components/modals/HedgeModal").then((m) => ({ default: m.HedgeModal })));
-const SimulatorModal = lazy(() => import("./components/modals/SimulatorModal").then((m) => ({ default: m.SimulatorModal })));
-const BacktestModal = lazy(() => import("./components/modals/BacktestModal").then((m) => ({ default: m.BacktestModal })));
-const DriftModal = lazy(() => import("./components/modals/DriftModal").then((m) => ({ default: m.DriftModal })));
-const MatchModal = lazy(() => import("./components/modals/MatchModal").then((m) => ({ default: m.MatchModal })));
-const SlipsModal = lazy(() => import("./components/modals/SlipsModal").then((m) => ({ default: m.SlipsModal })));
-const ResultsModal = lazy(() => import("./components/modals/ResultsModal").then((m) => ({ default: m.ResultsModal })));
-const PortfolioModal = lazy(() => import("./components/modals/PortfolioModal").then((m) => ({ default: m.PortfolioModal })));
+const dialogs = {
+  ImportModal: () => import("./components/modals/ImportModal"),
+  ExportModal: () => import("./components/modals/ExportModal"),
+  BudgetModal: () => import("./components/modals/BudgetModal"),
+  HedgeModal: () => import("./components/modals/HedgeModal"),
+  SimulatorModal: () => import("./components/modals/SimulatorModal"),
+  BacktestModal: () => import("./components/modals/BacktestModal"),
+  DriftModal: () => import("./components/modals/DriftModal"),
+  MatchModal: () => import("./components/modals/MatchModal"),
+  SlipsModal: () => import("./components/modals/SlipsModal"),
+  ResultsModal: () => import("./components/modals/ResultsModal"),
+  PortfolioModal: () => import("./components/modals/PortfolioModal"),
+};
+const ImportModal = lazy(() => dialogs.ImportModal().then((m) => ({ default: m.ImportModal })));
+const ExportModal = lazy(() => dialogs.ExportModal().then((m) => ({ default: m.ExportModal })));
+const BudgetModal = lazy(() => dialogs.BudgetModal().then((m) => ({ default: m.BudgetModal })));
+const HedgeModal = lazy(() => dialogs.HedgeModal().then((m) => ({ default: m.HedgeModal })));
+const SimulatorModal = lazy(() => dialogs.SimulatorModal().then((m) => ({ default: m.SimulatorModal })));
+const BacktestModal = lazy(() => dialogs.BacktestModal().then((m) => ({ default: m.BacktestModal })));
+const DriftModal = lazy(() => dialogs.DriftModal().then((m) => ({ default: m.DriftModal })));
+const MatchModal = lazy(() => dialogs.MatchModal().then((m) => ({ default: m.MatchModal })));
+const SlipsModal = lazy(() => dialogs.SlipsModal().then((m) => ({ default: m.SlipsModal })));
+const ResultsModal = lazy(() => dialogs.ResultsModal().then((m) => ({ default: m.ResultsModal })));
+const PortfolioModal = lazy(() => dialogs.PortfolioModal().then((m) => ({ default: m.PortfolioModal })));
+
+/**
+ * Warm every dialog chunk once the page is idle (online only). Opening a dialog is then instant, and the
+ * service worker has them cached so every tool still opens offline.
+ */
+function prefetchDialogs() {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  const run = () => Object.values(dialogs).forEach((load) => load().catch(() => {}));
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+  if (idle) idle(run);
+  else setTimeout(run, 1500);
+}
 
 const SOURCE_LABEL = {
   seed: "Sample coupon — Import to load the live SportPesa fixtures",
@@ -57,6 +83,11 @@ export default function App() {
   const modals = useModals();
   const now = useNow(1000);
   const auth = useAuthAndSlips();
+  const online = useOnline();
+  useEffect(() => {
+    if (import.meta.env.PROD) prefetchDialogs();
+  }, []);
+  const updateReady = useUpdateReady();
   const [prizes, setPrizes] = useState(loadPrizes);
   const [notice, setNotice] = useState<string | null>(
     restoredNotice.length ? "A saved coupon had already kicked off, so it was replaced with the upcoming round." : null,
@@ -193,6 +224,22 @@ export default function App() {
             </button>
           )}
         </div>
+
+        {!online && (
+          <div className="mb-4 rounded-md border border-line bg-surface px-4 py-2 text-sm" role="status">
+            <span className="font-medium">You're offline.</span> Your coupon, picks, saved slips, results and every tool keep working from
+            this device. Live search, screenshot OCR, fetching results and cloud sync need a connection.
+          </div>
+        )}
+
+        {updateReady && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-line bg-surface px-4 py-2 text-sm" role="status">
+            <span>A new version of SportsPredicta is available.</span>
+            <button className="btn btn-primary h-7" onClick={updateReady}>
+              Reload to update
+            </button>
+          </div>
+        )}
 
         {!isCouponOpen(coupon, new Date(now)) && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-warn/40 bg-warn-soft px-4 py-2 text-sm" role="alert">
