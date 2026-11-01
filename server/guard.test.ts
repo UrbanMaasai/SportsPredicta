@@ -146,3 +146,33 @@ describe("rate limiter behind a proxy", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 });
+
+describe("Gemini response handling", () => {
+  it("extracts the fixture array from grounded prose with citation marks", async () => {
+    const { extractJsonArray } = await import("./gemini");
+    expect(extractJsonArray('Here is the coupon [1]:\n[{"home":"A","away":"B"}]\nSource: SportPesa [2]')).toEqual([{ home: "A", away: "B" }]);
+    expect(extractJsonArray('{"fixtures":[{"home":"A","away":"B"}]}')).toEqual([{ home: "A", away: "B" }]);
+    expect(extractJsonArray('```json\n[{"home":"A","away":"B"}]\n```')).toEqual([{ home: "A", away: "B" }]);
+    // Prose with only a citation mark yields no fixtures (reported as "none found"), never a crash.
+    const { sanitizeRaw } = await import("../src/domain/parser");
+    expect(sanitizeRaw(extractJsonArray("I couldn't find the coupon [1]."))).toEqual([]);
+    expect(() => extractJsonArray("I couldn't find the coupon.")).toThrow();
+  });
+
+  it("recognises a retired or unknown model so it can fall back", async () => {
+    const { isModelUnavailable } = await import("./gemini");
+    expect(isModelUnavailable({ status: 404, message: "models/gemini-2.5-flash is not found" })).toBe(true);
+    expect(isModelUnavailable({ message: "Model gemini-2.5-flash is not supported for generateContent" })).toBe(true);
+    expect(isModelUnavailable({ status: 429, message: "Resource exhausted" })).toBe(false);
+    expect(isModelUnavailable({ status: 400, message: "API key not valid" })).toBe(false);
+  });
+
+  it("odds endpoint validates input and returns the lookup", async () => {
+    const fetchOdds = vi.fn(async () => ({ odds: [{ index: 0, home: 2, draw: 3, away: 4 }], sources: [] }));
+    const post = await start({ fetchOdds, rateLimitPerMinute: 100 });
+    expect((await post("/fixtures/odds", { fixtures: [] })).status).toBe(400);
+    const r = await post("/fixtures/odds", { fixtures: [{ home: "A", away: "B", kickoff: "2026-11-08T12:00:00Z" }] });
+    expect(r.status).toBe(200);
+    expect((await r.json()).odds).toHaveLength(1);
+  });
+});

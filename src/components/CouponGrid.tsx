@@ -171,11 +171,11 @@ export function CouponGrid({
                         type="button"
                         className="pick"
                         aria-pressed={picks.includes(o)}
-                        aria-label={`Leg ${f.leg} pick ${o} at ${formatOdds(oddsFor(f.odds, o))}`}
+                        aria-label={f.oddsMissing ? `Leg ${f.leg} pick ${o} (no odds)` : `Leg ${f.leg} pick ${o} at ${formatOdds(oddsFor(f.odds, o))}`}
                         onClick={() => onToggle(f.id, o)}
                       >
                         <small>{o}</small>
-                        {formatOdds(oddsFor(f.odds, o))}
+                        {f.oddsMissing ? <span className="text-[11px] opacity-70">no odds</span> : formatOdds(oddsFor(f.odds, o))}
                       </button>
                     ))}
                   </div>

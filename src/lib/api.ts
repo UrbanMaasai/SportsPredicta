@@ -27,6 +27,8 @@ export const api = {
       fixtures,
       refresh,
     }),
+  odds: (fixtures: { home: string; away: string; kickoff: string }[]) =>
+    post<{ odds: unknown[]; sources: { title: string; uri: string }[] }>("/api/fixtures/odds", { fixtures }),
   parse: (text: string) => post<{ fixtures: RawFixture[]; engine: string }>("/api/fixtures/parse", { text }),
 };
 

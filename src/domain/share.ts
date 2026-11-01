@@ -8,8 +8,8 @@ interface SharePayload {
   v: 1;
   k: JackpotKind;
   t: string;
-  /** home, away, league, kickoff ISO, [odds 1, X, 2], picks e.g. "1X", excluded 0/1, kickoff estimated 0/1 (optional) */
-  f: [string, string, string, string, [number, number, number], string, 0 | 1, (0 | 1)?][];
+  /** home, away, league, kickoff ISO, [odds 1, X, 2], picks e.g. "1X", excluded 0/1, kickoff estimated 0/1 and odds missing 0/1 (both optional) */
+  f: [string, string, string, string, [number, number, number], string, 0 | 1, (0 | 1)?, (0 | 1)?][];
 }
 
 export const SHARE_PARAM = "slip";
@@ -40,6 +40,7 @@ export function encodeShare(coupon: Coupon, selections: Selections, excluded: st
       (selections[x.id] ?? []).join(""),
       excluded.includes(x.id) ? 1 : 0,
       x.kickoffEstimated ? 1 : 0,
+      x.oddsMissing ? 1 : 0,
     ]),
   };
   return toBase64Url(JSON.stringify(payload));
@@ -68,7 +69,7 @@ export function decodeShare(encoded: string): DecodedShare {
   const id = `${p.k}-share-${hash(encoded).toString(36)}`;
   const selections: Selections = {};
   const excluded: string[] = [];
-  const fixtures = p.f.map(([home, away, league, kickoff, [h, d, a], picks, ex, est], i) => {
+  const fixtures = p.f.map(([home, away, league, kickoff, [h, d, a], picks, ex, est, noOdds], i) => {
     if (typeof home !== "string" || typeof away !== "string" || isNaN(Date.parse(kickoff)) || ![h, d, a].every((o) => o > 1)) {
       throw new Error(`Fixture ${i + 1} in the link is invalid.`);
     }
@@ -76,7 +77,7 @@ export function decodeShare(encoded: string): DecodedShare {
     selections[fid] = [...new Set([...String(picks)].filter((c): c is Outcome => c === "1" || c === "X" || c === "2"))];
     if (ex) excluded.push(fid);
     const fx = enrichFixture({ id: fid, leg: i + 1, home, away, league, kickoff, odds: { home: h, draw: d, away: a }, source: "import" });
-    return est ? { ...fx, kickoffEstimated: true } : fx;
+    return { ...fx, ...(est ? { kickoffEstimated: true } : {}), ...(noOdds ? { oddsMissing: true } : {}) };
   });
   return {
     coupon: { kind: p.k, id, title: String(p.t ?? RULES[p.k].name), fixtures, fetchedAt: new Date().toISOString() },

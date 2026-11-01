@@ -209,6 +209,11 @@ export default function App() {
                   First kickoff in <time className="num" dateTime={first.kickoff}>{countdown(first.kickoff, now)}</time>
                 </span>
               )}
+              {fixtures.some((f) => f.oddsMissing) && (
+                <span className="text-warn" title="The coupon printed no odds for these fixtures; strategies treat them as evenly matched.">
+                  <span className="num">{fixtures.filter((f) => f.oddsMissing).length}</span> without odds
+                </span>
+              )}
               {fixtures.some((f) => f.kickoffEstimated) && (
                 <span className="text-warn">
                   <span className="num">{fixtures.filter((f) => f.kickoffEstimated).length}</span> kickoff time

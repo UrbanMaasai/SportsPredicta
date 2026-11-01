@@ -21,8 +21,10 @@ Brighton v Fulham | 2.05 | 3.45 | 3.60`;
     expect(f.odds).toEqual({ home: 1.12, draw: 6.5, away: 9 });
   });
 
-  it("skips lines without three odds or teams", () => {
-    expect(parseCouponText("Arsenal vs Chelsea 1.85 3.40\nrandom 1.1 2.2 3.3")).toEqual([]);
+  it("keeps a fixture with incomplete odds (as no odds) and skips lines without teams", () => {
+    expect(parseCouponText("Arsenal vs Chelsea 1.85 3.40\nrandom 1.1 2.2 3.3")).toEqual([
+      { home: "Arsenal", away: "Chelsea", league: undefined, kickoff: undefined, odds: undefined },
+    ]);
   });
 
   it("converts raw fixtures into coupon fixtures with modelled form", () => {
@@ -33,15 +35,18 @@ Brighton v Fulham | 2.05 | 3.45 | 3.60`;
     expect(fx.every((f) => f.formModelled && f.source === "text")).toBe(true);
   });
 
-  it("sanitises AI output and drops malformed rows", () => {
+  it("sanitises AI output: drops rows without teams, keeps fixtures whose odds are missing or invalid", () => {
     const r = sanitizeRaw([
       { home: "A", away: "B", odds: { home: "2.1", draw: 3.1, away: 3.4 }, homeForm: ["W", "Z", "L"] },
       { home: "C", away: "D", odds: { home: 0.5, draw: 3, away: 3 } },
       { home: 1, away: "E", odds: { home: 2, draw: 3, away: 4 } },
+      { home: "F", away: "F" },
     ]);
-    expect(r).toHaveLength(1);
-    expect(r[0].odds.home).toBe(2.1);
+    expect(r.map((f) => f.home)).toEqual(["A", "C"]);
+    expect(r[0].odds!.home).toBe(2.1);
+    expect(r[1].odds).toBeUndefined(); // kept, flagged later as oddsMissing — never invented
     expect(r[0].homeForm).toEqual(["W", "L"]);
     expect(sanitizeRaw("nope")).toEqual([]);
+    expect(sanitizeRaw({ fixtures: [{ home: "X", away: "Y" }] })).toHaveLength(1);
   });
 });

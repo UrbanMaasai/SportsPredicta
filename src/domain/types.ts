@@ -33,6 +33,8 @@ export interface Fixture {
   formModelled: boolean;
   /** True when the source gave no kickoff time and a placeholder slot was assigned. */
   kickoffEstimated?: boolean;
+  /** True when the source printed no odds; `odds` then holds neutral placeholders, not prices. */
+  oddsMissing?: boolean;
 }
 
 export interface Coupon {

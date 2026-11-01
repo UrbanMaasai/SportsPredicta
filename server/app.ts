@@ -21,6 +21,7 @@ export interface ApiDeps {
   ocrCoupon: typeof gemini.ocrCoupon;
   parseTextAI: typeof gemini.parseTextAI;
   fetchResults: typeof gemini.fetchResults;
+  fetchOdds: typeof gemini.fetchOdds;
   geminiConfigured: () => boolean;
   now: () => number;
   /** Requests per client per minute to the fixture endpoints (all of which may call Gemini). */
@@ -36,6 +37,7 @@ const DEFAULT_DEPS: ApiDeps = {
   ocrCoupon: gemini.ocrCoupon,
   parseTextAI: gemini.parseTextAI,
   fetchResults: gemini.fetchResults,
+  fetchOdds: gemini.fetchOdds,
   geminiConfigured: gemini.geminiConfigured,
   now: Date.now,
   rateLimitPerMinute: Number(process.env.API_RATE_LIMIT_PER_MIN ?? 20),
@@ -45,7 +47,7 @@ const DEFAULT_DEPS: ApiDeps = {
 
 export function createApi(overrides: Partial<ApiDeps> = {}) {
   const deps = { ...DEFAULT_DEPS, ...overrides };
-  const { scrapeLive, ocrCoupon, parseTextAI, fetchResults, geminiConfigured } = deps;
+  const { scrapeLive, ocrCoupon, parseTextAI, fetchResults, fetchOdds, geminiConfigured } = deps;
   const resultsCache = new TtlCache<Awaited<ReturnType<typeof gemini.fetchResults>>>(deps.liveCacheMs, deps.now);
   const liveCache = new TtlCache<Awaited<ReturnType<typeof gemini.scrapeLive>>>(deps.liveCacheMs, deps.now);
   const timed = <T>(p: Promise<T>) => withTimeout(p, deps.upstreamTimeoutMs, "Gemini");
@@ -105,6 +107,30 @@ export function createApi(overrides: Partial<ApiDeps> = {}) {
       const local = parseCouponText(text);
       if (local.length > 0 || !geminiConfigured()) return res.json({ fixtures: local, engine: "local" });
       res.json({ fixtures: await timed(parseTextAI(text)), engine: "gemini" });
+    }),
+  );
+
+  api.post(
+    "/fixtures/odds",
+    wrap(async (req, res) => {
+      const fixtures = req.body?.fixtures;
+      const valid =
+        Array.isArray(fixtures) &&
+        fixtures.length > 0 &&
+        fixtures.length <= 17 &&
+        fixtures.every(
+          (f: unknown) =>
+            typeof (f as Record<string, unknown>)?.home === "string" &&
+            typeof (f as Record<string, unknown>)?.away === "string" &&
+            !isNaN(Date.parse(String((f as Record<string, unknown>).kickoff))),
+        );
+      if (!valid) return res.status(400).json({ error: "Send up to 17 fixtures with home, away and kickoff." });
+      const list = (fixtures as { home: string; away: string; kickoff: string }[]).map((f) => ({
+        home: f.home.slice(0, 80),
+        away: f.away.slice(0, 80),
+        kickoff: new Date(f.kickoff).toISOString(),
+      }));
+      res.json(await timed(fetchOdds(list)));
     }),
   );
 
