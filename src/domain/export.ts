@@ -72,12 +72,12 @@ export function formatTelegram(
   const lines = combinations(selections, coupon.fixtures);
   const rows = coupon.fixtures.map((f) => {
     const picks = selections[f.id] ?? [];
-    const odds = picks.map((p) => oddsFor(f.odds, p).toFixed(2)).join("/");
+    const odds = f.oddsMissing ? "no odds" : picks.map((p) => oddsFor(f.odds, p).toFixed(2)).join("/");
     const double = picks.length > 1 ? " 🔀" : "";
     return `${leagueFlag(f.league)} *${f.leg}.* ${f.home} vs ${f.away} — *${picks.join("/") || "?"}*${double} (${odds || "–"})`;
   });
   const bestOdds = coupon.fixtures.reduce(
-    (acc, f) => acc * Math.max(1, ...(selections[f.id] ?? []).map((p) => oddsFor(f.odds, p))),
+    (acc, f) => (f.oddsMissing ? acc : acc * Math.max(1, ...(selections[f.id] ?? []).map((p) => oddsFor(f.odds, p)))),
     1,
   );
   return [
@@ -87,7 +87,9 @@ export function formatTelegram(
     ...rows,
     "",
     `🧮 *Lines:* ${lines} · *Stake:* KES ${(lines * rules.stake).toLocaleString("en-KE")}`,
-    `📈 *Combined odds (best line):* ${bestOdds.toFixed(2)}`,
+    `📈 *Combined odds (best line):* ${bestOdds.toFixed(2)}${
+      coupon.fixtures.some((f) => f.oddsMissing) ? ` (excludes ${coupon.fixtures.filter((f) => f.oddsMissing).length} legs without odds)` : ""
+    }`,
     `📲 SMS to ${SMS_SHORTCODE}`,
   ].join("\n");
 }
@@ -104,7 +106,8 @@ export function toJson(coupon: Coupon, selections: Selections, rules: JackpotRul
       away: f.away,
       league: f.league,
       kickoff: f.kickoff,
-      odds: f.odds,
+      // Placeholder prices are never exported as real odds.
+      odds: f.oddsMissing ? null : f.odds,
       picks: selections[f.id] ?? [],
       excluded: excluded.includes(f.id),
     })),
@@ -121,7 +124,15 @@ function csvCell(v: string | number): string {
 export function toCsv(coupon: Coupon, selections: Selections): string {
   const header = ["Leg", "Home", "Away", "League", "Kickoff", "Odds 1", "Odds X", "Odds 2", "Picks"];
   const rows = coupon.fixtures.map((f) =>
-    [f.leg, f.home, f.away, f.league, f.kickoff, f.odds.home, f.odds.draw, f.odds.away, (selections[f.id] ?? []).join("/")]
+    [
+      f.leg,
+      f.home,
+      f.away,
+      f.league,
+      f.kickoff,
+      ...(f.oddsMissing ? ["", "", ""] : [f.odds.home, f.odds.draw, f.odds.away]),
+      (selections[f.id] ?? []).join("/"),
+    ]
       .map(csvCell)
       .join(","),
   );

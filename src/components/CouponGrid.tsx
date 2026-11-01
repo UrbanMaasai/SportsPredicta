@@ -145,12 +145,23 @@ export function CouponGrid({
                   </p>
                 </td>
                 <td className="whitespace-nowrap">
-                  <time dateTime={f.kickoff} className="num block text-[13px]">
-                    {countdown(f.kickoff, now)}
-                  </time>
-                  <span className="meta num">
-                    {new Date(f.kickoff).toLocaleString("en-KE", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
-                  </span>
+                  {f.kickoffEstimated ? (
+                    <>
+                      <span className="block text-[13px] text-ink-2">Time TBC</span>
+                      <span className="meta" title="The imported coupon had no kickoff time for this match; a placeholder is used for ordering.">
+                        not in source
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <time dateTime={f.kickoff} className="num block text-[13px]">
+                        {countdown(f.kickoff, now)}
+                      </time>
+                      <span className="meta num">
+                        {new Date(f.kickoff).toLocaleString("en-KE", { weekday: "short", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </>
+                  )}
                 </td>
                 <td>
                   <div className="flex gap-1.5" role="group" aria-label={`Leg ${f.leg} picks`}>
@@ -160,11 +171,11 @@ export function CouponGrid({
                         type="button"
                         className="pick"
                         aria-pressed={picks.includes(o)}
-                        aria-label={`Leg ${f.leg} pick ${o} at ${formatOdds(oddsFor(f.odds, o))}`}
+                        aria-label={f.oddsMissing ? `Leg ${f.leg} pick ${o} (no odds)` : `Leg ${f.leg} pick ${o} at ${formatOdds(oddsFor(f.odds, o))}`}
                         onClick={() => onToggle(f.id, o)}
                       >
                         <small>{o}</small>
-                        {formatOdds(oddsFor(f.odds, o))}
+                        {f.oddsMissing ? <span className="text-[11px] opacity-70">no odds</span> : formatOdds(oddsFor(f.odds, o))}
                       </button>
                     ))}
                   </div>

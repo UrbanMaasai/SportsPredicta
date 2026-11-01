@@ -25,11 +25,12 @@ Other scripts: `npm test` (Vitest), `npm run typecheck`.
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
+| `GEMINI_MODEL` | server | Optional model override. Defaults to `gemini-2.5-flash`; a retired or unknown model falls back to `gemini-flash-latest` automatically. |
 | `GEMINI_API_KEY` | server | Live search scraper, screenshot OCR, AI text parsing. Without it those endpoints return `503` with a clear message; everything else works. |
 | `VITE_FIREBASE_*` | client (build time) | Google sign-in and Firestore slip sync. Without it the app runs in LocalStorage-only mode and the Firebase SDK is never downloaded. |
 | `PORT` | server | Defaults to `3000`. |
 | `API_RATE_LIMIT_PER_MIN` | server | Requests per client per minute to `/api/fixtures/*`, all of which may call Gemini. Defaults to `20`. |
-| `TRUST_PROXY` | server | Set behind a reverse proxy (`true` or a hop count) so rate limiting sees the real client IP. |
+| `TRUST_PROXY` | server | Set behind a reverse proxy (`true` or a hop count) so rate limiting sees the real client IP. Without it, every client shares one bucket, and the server logs a warning when it sees `X-Forwarded-For`. |
 
 Firestore security rules are in `firestore.rules`. Slips live at `users/{uid}/slips/{slipId}` and strategy history at `users/{uid}/history/{runId}`. Both are readable and writable only by their owner.
 
@@ -70,6 +71,10 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 
 ## Data sources and honesty notes
 
+- **Importing a real coupon.** Live search, screenshots and pasted text all add to one list in the Import dialog, so they can be combined.
+  - **Screenshots:** a phone screen shows only part of a 17-match coupon, so add several. You can pick them at once or add more later; repeats are merged.
+  - **Missing odds:** SportPesa's jackpot coupon usually prints no odds. Fixtures without odds are kept, never given invented odds, and shown as *no odds*; strategies treat them as evenly matched. **Find market odds** looks up current 1X2 prices (SportPesa first, then other bookmakers).
+  - **Times:** kickoffs without a timezone are read as Nairobi time, and a misread year (for coupons that print only day and month) is corrected.
 - **Sample coupon.** On first load each jackpot shows a sample coupon anchored to the current calendar (MJP on Sat/Sun, Midweek on Tue/Wed, always in the future). It is labelled as a sample. Use **Import** to load the real coupon by live search, screenshot OCR or pasted text.
 - **Live search** (`POST /api/fixtures/live`) asks Gemini with Google Search grounding for the upcoming coupon on ke.sportpesa.com. Past kickoffs are filtered on both the server and the client, and grounding sources are shown. A search can still return wrong data, so check the preview before loading.
 - **Form, H2H and odds drift.** When a source does not supply form or head-to-head data, they are modelled deterministically from market strength and flagged in the UI. In the odds-drift chart, points are observed wherever the coupon was imported. Only the stretch before the first import is modelled, and it is bridged onto the first observed price.
@@ -77,8 +82,17 @@ Lines = ∏|Sᵢ| (the product of picks per leg). Cost = lines × stake. All rul
 
 Probabilities are estimates. Nothing here guarantees a winning ticket. Bet responsibly · 18+.
 
+## Offline and installable
+
+- **Installable:** the app ships a web app manifest and 192/512 px icons (including a maskable icon), so phones can install it to the home screen.
+- **Offline:** a service worker (`public/sw.js`, production builds only) caches the app shell, the content-hashed bundles and Google Fonts. Because the coupon, picks, saved slips, results and history live in LocalStorage, every tool keeps working offline, including dialogs never opened before, since their code is prefetched when the app is idle.
+- **Network-only:** `/api/*` is never cached. Live search, OCR, fetching results and cloud sync need a connection, and say so when offline.
+- **Updates:** a new deploy installs in the background, and the app offers *Reload to update*. It never switches versions mid-session on its own. `sw.js` and the manifest are served with `Cache-Control: no-cache`, and `/assets/*` as immutable.
+
 ## Resilience
 
+- If the first match of the current coupon kicks off while the app is open, a notice says the coupon has closed and offers to import the next round.
+- Fixtures imported without a kickoff time show *Time TBC* instead of an invented countdown. Results can still be entered for them.
 - An error boundary replaces a crashed view with a recovery screen. *Reset session* clears only the working coupon and picks; saved slips, results and history stay.
 - Dialogs are code-split and load on first open, which keeps the initial bundle small.
 - Focus is trapped inside dialogs while they are open.
@@ -99,6 +113,7 @@ Probabilities are estimates. Nothing here guarantees a winning ticket. Bet respo
 | POST | `/api/fixtures/live` | `{ kind: "MJP17" \| "MID13", refresh?: boolean }` | `{ fixtures, sources }` |
 | POST | `/api/fixtures/ocr` | `{ image: base64 \| dataURL, mimeType }` (PNG/JPEG/WebP, ≤ 8 MB) | `{ fixtures }` |
 | POST | `/api/fixtures/results` | `{ kind, fixtures: [{ home, away, kickoff }], refresh?: boolean }` | `{ matches: [{ index, homeGoals, awayGoals, status }], payouts, sources }` |
+| POST | `/api/fixtures/odds` | `{ fixtures: [{ home, away, kickoff }] }` | `{ odds: [{ index, home, draw, away, bookmaker? }], sources }` |
 | POST | `/api/fixtures/parse` | `{ text }` | `{ fixtures, engine: "local" \| "gemini" }` |
 
 ## Project layout
@@ -116,4 +131,4 @@ src/lib/                Firebase (lazy), LocalStorage, API client
 
 ## Tests
 
-`npm test` runs 160 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, the results lookup, the error boundary and the dialog focus trap, session restore, App integration and the API routes.
+`npm test` runs 205 Vitest tests. CI (`.github/workflows/ci.yml`) runs typecheck, tests and build on every pull request and every push to `main`. The tests cover permutation math and rule validation, coupon health, slump detection and the Filter by Slump column, modal state and dialogs, strategies and consensus, the optimiser (checked against brute force), hedging coverage, SMS/Telegram/JSON/CSV formats, the text parser, date grounding, the simulator, backtesting, odds drift, results grading and parsing, share links, the slip portfolio (against brute force), undo/redo and keyboard picking, strategy history, league flags, server rate limiting, caching and timeouts, the results lookup, the error boundary and the dialog focus trap, service-worker routing and the update handshake, offline handling, palette contrast (WCAG AA), session restore, App integration and the API routes.

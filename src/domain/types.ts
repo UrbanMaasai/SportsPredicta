@@ -31,6 +31,10 @@ export interface Fixture {
   source: "seed" | "live" | "ocr" | "text" | "import";
   /** True when form/h2h were modelled from odds rather than supplied by the source. */
   formModelled: boolean;
+  /** True when the source gave no kickoff time and a placeholder slot was assigned. */
+  kickoffEstimated?: boolean;
+  /** True when the source printed no odds; `odds` then holds neutral placeholders, not prices. */
+  oddsMissing?: boolean;
 }
 
 export interface Coupon {

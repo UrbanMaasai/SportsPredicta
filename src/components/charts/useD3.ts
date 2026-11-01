@@ -17,7 +17,7 @@ export function useD3(render: (svg: d3.Selection<SVGSVGElement, unknown, null, u
 export const C = {
   ink: "#0f172a",
   ink2: "#475569",
-  ink3: "#7b8697",
+  ink3: "#646d7b",
   line: "#e2e5ea",
   accent: "#0f766e",
   accentSoft: "#9fd6cf",

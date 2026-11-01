@@ -17,7 +17,17 @@ async function main() {
   if (isProd) {
     // dist/server.cjs sits next to dist/public
     const publicDir = path.resolve(__dirname, "public");
-    app.use(express.static(publicDir, { index: false, maxAge: "1h" }));
+    app.use(
+      express.static(publicDir, {
+        index: false,
+        maxAge: "1h",
+        setHeaders(res, file) {
+          // Hashed bundles are immutable; the service worker and manifest must always revalidate so updates ship.
+          if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          else if (/(sw\.js|manifest\.webmanifest)$/.test(file)) res.setHeader("Cache-Control", "no-cache");
+        },
+      }),
+    );
     app.get(/^(?!\/api).*/, (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
   } else {
     const { createServer } = await import("vite");

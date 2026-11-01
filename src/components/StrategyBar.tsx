@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { StrategyId } from "../domain/types";
 import type { JackpotRules } from "../domain/jackpot";
 import { STRATEGIES } from "../domain/strategies";
@@ -28,6 +28,12 @@ export function StrategyBar({
 }) {
   const [s, setS] = useState<StrategyId>(strategy === "custom" ? "balanced" : strategy);
   const [d, setD] = useState(doubles);
+  // Follow the slip when it changes from outside (undo/redo, re-apply from history, restoring a slip).
+  // Hand-edited ("custom") slips keep whatever strategy is currently chosen here.
+  useEffect(() => {
+    if (strategy !== "custom") setS(strategy);
+  }, [strategy]);
+  useEffect(() => setD(doubles), [doubles]);
   const lines = 2 ** d;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">

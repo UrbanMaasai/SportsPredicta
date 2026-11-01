@@ -114,3 +114,65 @@ describe("results lookup endpoint", () => {
     expect(fetchResults).toHaveBeenCalledWith("MID13", [{ home: "Arsenal", away: "Chelsea", kickoff: "2026-10-25T14:00:00.000Z" }]);
   });
 });
+
+describe("rate limiter behind a proxy", () => {
+  it("warns once when X-Forwarded-For arrives without trust proxy", async () => {
+    const { rateLimit } = await import("./guard");
+    const warn = vi.fn();
+    const app = express();
+    app.use(rateLimit({ limit: 100, windowMs: 60_000, warn }));
+    app.get("/", (_req, res) => res.send("ok"));
+    server = app.listen(0);
+    await new Promise((r) => server!.once("listening", r));
+    const url = `http://127.0.0.1:${(server!.address() as AddressInfo).port}/`;
+    await fetch(url);
+    expect(warn).not.toHaveBeenCalled();
+    await fetch(url, { headers: { "X-Forwarded-For": "1.2.3.4" } });
+    await fetch(url, { headers: { "X-Forwarded-For": "5.6.7.8" } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/TRUST_PROXY/);
+  });
+
+  it("stays quiet when trust proxy is configured", async () => {
+    const { rateLimit } = await import("./guard");
+    const warn = vi.fn();
+    const app = express();
+    app.set("trust proxy", 1);
+    app.use(rateLimit({ limit: 100, windowMs: 60_000, warn }));
+    app.get("/", (_req, res) => res.send("ok"));
+    server = app.listen(0);
+    await new Promise((r) => server!.once("listening", r));
+    await fetch(`http://127.0.0.1:${(server!.address() as AddressInfo).port}/`, { headers: { "X-Forwarded-For": "1.2.3.4" } });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("Gemini response handling", () => {
+  it("extracts the fixture array from grounded prose with citation marks", async () => {
+    const { extractJsonArray } = await import("./gemini");
+    expect(extractJsonArray('Here is the coupon [1]:\n[{"home":"A","away":"B"}]\nSource: SportPesa [2]')).toEqual([{ home: "A", away: "B" }]);
+    expect(extractJsonArray('{"fixtures":[{"home":"A","away":"B"}]}')).toEqual([{ home: "A", away: "B" }]);
+    expect(extractJsonArray('```json\n[{"home":"A","away":"B"}]\n```')).toEqual([{ home: "A", away: "B" }]);
+    // Prose with only a citation mark yields no fixtures (reported as "none found"), never a crash.
+    const { sanitizeRaw } = await import("../src/domain/parser");
+    expect(sanitizeRaw(extractJsonArray("I couldn't find the coupon [1]."))).toEqual([]);
+    expect(() => extractJsonArray("I couldn't find the coupon.")).toThrow();
+  });
+
+  it("recognises a retired or unknown model so it can fall back", async () => {
+    const { isModelUnavailable } = await import("./gemini");
+    expect(isModelUnavailable({ status: 404, message: "models/gemini-2.5-flash is not found" })).toBe(true);
+    expect(isModelUnavailable({ message: "Model gemini-2.5-flash is not supported for generateContent" })).toBe(true);
+    expect(isModelUnavailable({ status: 429, message: "Resource exhausted" })).toBe(false);
+    expect(isModelUnavailable({ status: 400, message: "API key not valid" })).toBe(false);
+  });
+
+  it("odds endpoint validates input and returns the lookup", async () => {
+    const fetchOdds = vi.fn(async () => ({ odds: [{ index: 0, home: 2, draw: 3, away: 4 }], sources: [] }));
+    const post = await start({ fetchOdds, rateLimitPerMinute: 100 });
+    expect((await post("/fixtures/odds", { fixtures: [] })).status).toBe(400);
+    const r = await post("/fixtures/odds", { fixtures: [{ home: "A", away: "B", kickoff: "2026-11-08T12:00:00Z" }] });
+    expect(r.status).toBe(200);
+    expect((await r.json()).odds).toHaveLength(1);
+  });
+});
